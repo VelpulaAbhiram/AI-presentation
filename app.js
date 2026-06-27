@@ -52,7 +52,63 @@ const titleCase = (text) =>
     .map((word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
     .join(" ");
 
-function makeDeckFromPrompt() {
+async function makeDeckFromPrompt() {
+  const generateBtn = $("generateBtn");
+  generateBtn.disabled = true;
+  generateBtn.textContent = "Generating...";
+
+  try {
+    const aiDeck = await generateDeckWithAi();
+    if (aiDeck) {
+      deck = aiDeck;
+      selectedIndex = 0;
+      render();
+      toast("AI deck generated. Edit any slide, then export to PowerPoint.");
+      return;
+    }
+  } catch (error) {
+    console.warn(error);
+    toast("AI generation unavailable. Using local generator.");
+  } finally {
+    generateBtn.disabled = false;
+    generateBtn.textContent = "Generate Deck";
+  }
+
+  makeLocalDeckFromPrompt();
+}
+
+async function generateDeckWithAi() {
+  if (location.protocol === "file:") {
+    return null;
+  }
+
+  const response = await fetch("/api/generate-deck", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      prompt: $("promptInput").value.trim(),
+      slideCount: Number($("slideCount").value) || 7,
+      style: $("styleSelect").value,
+    }),
+  });
+
+  const data = await response.json();
+  if (!response.ok) {
+    throw new Error(data.error || "AI generation failed");
+  }
+
+  return data.slides.map((slide) => ({
+    id: slide.id || crypto.randomUUID(),
+    title: slide.title,
+    subtitle: slide.subtitle,
+    layout: slide.layout,
+    theme: slide.theme,
+    bullets: slide.bullets,
+    notes: slide.notes,
+  }));
+}
+
+function makeLocalDeckFromPrompt() {
   const prompt = $("promptInput").value.trim() || "Create a business presentation";
   const count = Math.max(4, Math.min(10, Number($("slideCount").value) || 7));
   const style = $("styleSelect").value;
