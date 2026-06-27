@@ -39,3 +39,13 @@ http://localhost:3000
 ```
 
 The app will use the Groq model for deck generation. If the API key is missing or the request fails, it falls back to the local generator.
+
+## GitHub Codespaces
+
+1. Open the repo in GitHub.
+2. Go to **Settings > Secrets and variables > Codespaces**.
+3. Add a repository secret named `GROQ_API_KEY` with your Groq key.
+4. Create a new Codespace from the `master` branch.
+5. The dev container forwards port `3000` and starts the server with `npm start`.
+
+If you want a different Groq model, add another Codespaces secret named `GROQ_MODEL`.
