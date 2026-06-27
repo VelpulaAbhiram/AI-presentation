@@ -2,6 +2,7 @@ const http = require("http");
 const fs = require("fs");
 const path = require("path");
 const { randomUUID } = require("crypto");
+const pptxgen = require("pptxgenjs");
 
 const root = __dirname;
 const port = Number(process.env.PORT || 3000);
@@ -49,6 +50,11 @@ const server = http.createServer(async (req, res) => {
   try {
     if (req.method === "POST" && req.url === "/api/generate-deck") {
       await handleGenerateDeck(req, res);
+      return;
+    }
+
+    if (req.method === "POST" && req.url === "/api/export-pptx") {
+      await handleExportPptx(req, res);
       return;
     }
 
@@ -135,6 +141,265 @@ async function handleGenerateDeck(req, res) {
       id: randomUUID(),
     })),
   });
+}
+
+async function handleExportPptx(req, res) {
+  const body = await readJson(req);
+  const slides = normalizeGeneratedDeck({ slides: body.slides || [] }, 10);
+
+  if (!slides.length) {
+    sendJson(res, 400, { error: "No slides to export" });
+    return;
+  }
+
+  const pptx = new pptxgen();
+  pptx.layout = "LAYOUT_WIDE";
+  pptx.author = "AI Presentation Studio";
+  pptx.company = "AI Presentation Studio";
+  pptx.subject = "Generated editable presentation";
+  pptx.title = "AI Presentation Studio Deck";
+  pptx.lang = "en-US";
+  pptx.theme = {
+    headFontFace: "Aptos Display",
+    bodyFontFace: "Aptos",
+    lang: "en-US",
+  };
+
+  slides.forEach((deckSlide, index) => addPptxSlide(pptx, deckSlide, index));
+
+  const buffer = await pptx.write({ outputType: "nodebuffer" });
+  res.writeHead(200, {
+    "Content-Type": "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+    "Content-Disposition": 'attachment; filename="ai-presentation-studio-deck.pptx"',
+    "Content-Length": buffer.length,
+  });
+  res.end(buffer);
+}
+
+function addPptxSlide(pptx, deckSlide, index) {
+  const slide = pptx.addSlide();
+  const theme = getTheme(deckSlide.theme);
+  slide.background = { color: theme.bg };
+  slide.addShape(pptx.ShapeType.rect, {
+    x: 0,
+    y: 0,
+    w: 13.333,
+    h: 7.5,
+    fill: { color: theme.bg },
+    line: { color: theme.bg },
+  });
+
+  slide.addText(deckSlide.title, {
+    x: 0.65,
+    y: 0.58,
+    w: 7.8,
+    h: 0.72,
+    fontFace: "Aptos Display",
+    fontSize: 30,
+    bold: true,
+    color: theme.ink,
+    margin: 0,
+    breakLine: false,
+    fit: "shrink",
+  });
+
+  slide.addText(deckSlide.subtitle, {
+    x: 0.65,
+    y: 1.35,
+    w: 7.1,
+    h: 0.55,
+    fontSize: 14,
+    color: theme.muted,
+    margin: 0,
+    fit: "shrink",
+  });
+
+  const layout = deckSlide.layout || "bullets";
+  if (layout === "metrics") {
+    addMetrics(slide, theme);
+  } else if (layout === "comparison") {
+    addComparison(slide, theme);
+  } else if (layout === "timeline") {
+    addTimeline(slide, theme);
+  } else if (layout === "hero") {
+    addHero(slide, deckSlide, theme);
+  } else {
+    addBullets(slide, deckSlide, theme, 0.85, 2.55, 6.9, 2.4);
+  }
+
+  slide.addText(`${index + 1}`, {
+    x: 12.25,
+    y: 6.95,
+    w: 0.38,
+    h: 0.24,
+    fontSize: 8,
+    color: theme.muted,
+    align: "right",
+    margin: 0,
+  });
+
+  if (deckSlide.notes) {
+    slide.addNotes(deckSlide.notes);
+  }
+}
+
+function addHero(slide, deckSlide, theme) {
+  slide.addShape("arc", {
+    x: 9.65,
+    y: 0.7,
+    w: 2.45,
+    h: 2.45,
+    adjustPoint: 0.18,
+    fill: { color: theme.accent2, transparency: 18 },
+    line: { color: theme.accent2, transparency: 100 },
+    rotate: 24,
+  });
+  addBullets(slide, deckSlide, theme, 0.85, 4.35, 7.0, 1.5);
+}
+
+function addBullets(slide, deckSlide, theme, x, y, w, h) {
+  const richText = deckSlide.bullets.slice(0, 4).map((bullet) => ({
+    text: bullet,
+    options: {
+      bullet: { type: "bullet" },
+      hanging: 4,
+      breakLine: true,
+    },
+  }));
+
+  slide.addText(richText, {
+    x,
+    y,
+    w,
+    h,
+    fontSize: 15,
+    color: theme.ink,
+    fit: "shrink",
+    valign: "mid",
+    paraSpaceAfterPt: 8,
+    margin: 0.04,
+  });
+}
+
+function addMetrics(slide, theme) {
+  [
+    ["3x", "Faster draft creation"],
+    ["92%", "Editable slide objects"],
+    ["10", "Export-ready layouts"],
+  ].forEach(([stat, label], index) => {
+    const x = 0.78 + index * 3.8;
+    slide.addShape("roundRect", {
+      x,
+      y: 3.55,
+      w: 3.05,
+      h: 1.35,
+      rectRadius: 0.08,
+      fill: { color: theme.surface },
+      line: { color: "DDE5EC" },
+    });
+    slide.addText(stat, {
+      x: x + 0.28,
+      y: 3.78,
+      w: 1.45,
+      h: 0.4,
+      fontSize: 25,
+      bold: true,
+      color: theme.accent,
+      margin: 0,
+    });
+    slide.addText(label, {
+      x: x + 0.3,
+      y: 4.28,
+      w: 2.3,
+      h: 0.3,
+      fontSize: 10,
+      color: theme.muted,
+      margin: 0,
+    });
+  });
+}
+
+function addComparison(slide, theme) {
+  [
+    ["Before", "Manual outline, copy, layout, and export cleanup.", 7.25],
+    ["After", "Prompt-driven draft with editable PowerPoint output.", 9.85],
+  ].forEach(([title, body, x], index) => {
+    slide.addShape("roundRect", {
+      x,
+      y: 2.5,
+      w: 2.35,
+      h: 2.45,
+      rectRadius: 0.06,
+      fill: { color: theme.surface },
+      line: { color: "DDE5EC" },
+    });
+    slide.addText(title, {
+      x: x + 0.25,
+      y: 2.85,
+      w: 1.8,
+      h: 0.35,
+      fontSize: 16,
+      bold: true,
+      color: index ? theme.accent : theme.ink,
+      margin: 0,
+    });
+    slide.addText(body, {
+      x: x + 0.25,
+      y: 3.35,
+      w: 1.75,
+      h: 0.86,
+      fontSize: 11,
+      color: theme.muted,
+      fit: "shrink",
+      margin: 0,
+    });
+  });
+}
+
+function addTimeline(slide, theme) {
+  ["Prompt", "Outline", "Edit", "Export"].forEach((label, index) => {
+    const x = 0.95 + index * 2.85;
+    const filled = index % 2 === 0;
+    slide.addShape("roundRect", {
+      x,
+      y: 3.4,
+      w: 2.35,
+      h: 1.1,
+      rectRadius: 0.06,
+      fill: { color: filled ? theme.accent : theme.surface },
+      line: { color: filled ? theme.accent : "DDE5EC" },
+    });
+    slide.addText(`0${index + 1}`, {
+      x: x + 0.24,
+      y: 3.62,
+      w: 0.55,
+      h: 0.25,
+      fontSize: 11,
+      bold: true,
+      color: filled ? "FFFFFF" : theme.accent,
+      margin: 0,
+    });
+    slide.addText(label, {
+      x: x + 0.24,
+      y: 3.9,
+      w: 1.6,
+      h: 0.28,
+      fontSize: 15,
+      bold: true,
+      color: filled ? "FFFFFF" : theme.ink,
+      margin: 0,
+    });
+  });
+}
+
+function getTheme(name) {
+  const themes = {
+    aurora: { bg: "F8FBFD", surface: "FFFFFF", ink: "131820", muted: "667085", accent: "1B8A8F", accent2: "F2B544" },
+    mono: { bg: "F4F4F1", surface: "FFFFFF", ink: "171717", muted: "6B6B64", accent: "2F5D50", accent2: "B6A16B" },
+    signal: { bg: "F3F7FF", surface: "FFFFFF", ink: "101828", muted: "64748B", accent: "315CFF", accent2: "10A37F" },
+    ember: { bg: "FFF8F3", surface: "FFFFFF", ink: "201A17", muted: "765E54", accent: "C95532", accent2: "2D8C73" },
+  };
+  return themes[name] || themes.aurora;
 }
 
 function serveStatic(req, res) {

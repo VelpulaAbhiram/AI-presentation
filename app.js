@@ -345,17 +345,44 @@ function toast(message) {
   window.setTimeout(() => node.classList.remove("show"), 2600);
 }
 
-function downloadPptx() {
+async function downloadPptx() {
+  if (location.protocol !== "file:") {
+    try {
+      const response = await fetch("/api/export-pptx", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ slides: deck }),
+      });
+
+      if (!response.ok) {
+        const data = await response.json().catch(() => ({}));
+        throw new Error(data.error || "PowerPoint export failed");
+      }
+
+      const blob = await response.blob();
+      saveBlob(blob, "ai-presentation-studio-deck.pptx");
+      toast("PowerPoint exported.");
+      return;
+    } catch (error) {
+      console.warn(error);
+      toast("Server export unavailable. Using browser fallback.");
+    }
+  }
+
   const files = buildPptxFiles(deck);
   const blob = new Blob([zipFiles(files)], {
     type: "application/vnd.openxmlformats-officedocument.presentationml.presentation",
   });
+  saveBlob(blob, "ai-presentation-studio-deck.pptx");
+  toast("PowerPoint exported.");
+}
+
+function saveBlob(blob, filename) {
   const link = document.createElement("a");
   link.href = URL.createObjectURL(blob);
-  link.download = "ai-presentation-studio-deck.pptx";
+  link.download = filename;
   link.click();
   URL.revokeObjectURL(link.href);
-  toast("PowerPoint exported.");
 }
 
 function buildPptxFiles(slides) {

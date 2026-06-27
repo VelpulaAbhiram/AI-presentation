@@ -9,5 +9,6 @@
       "visibility": "public"
     }
   },
+  "postCreateCommand": "npm install",
   "postAttachCommand": "npm start"
 }
