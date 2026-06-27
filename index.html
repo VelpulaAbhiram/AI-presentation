@@ -1,0 +1,135 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>AI Presentation Studio</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <div class="app-shell">
+      <aside class="sidebar">
+        <div class="brand-lockup">
+          <div class="brand-mark">A</div>
+          <div>
+            <strong>AI Presentation Studio</strong>
+            <span>Prompt to editable PPTX</span>
+          </div>
+        </div>
+
+        <nav class="nav-list" aria-label="Workspace">
+          <button class="nav-item active" type="button" data-view="studio">
+            <span>✦</span> Studio
+          </button>
+          <button class="nav-item" type="button" data-view="templates">
+            <span>▦</span> Templates
+          </button>
+          <button class="nav-item" type="button" data-view="brand">
+            <span>◐</span> Brand
+          </button>
+        </nav>
+
+        <section class="panel compact">
+          <h2>Deck Setup</h2>
+          <label>
+            Presentation prompt
+            <textarea id="promptInput" rows="8">Create a clean Series A pitch deck for an AI presentation design tool that helps teams generate editable PowerPoint decks from prompts.</textarea>
+          </label>
+          <div class="field-grid">
+            <label>
+              Slides
+              <input id="slideCount" type="number" min="4" max="10" value="7" />
+            </label>
+            <label>
+              Style
+              <select id="styleSelect">
+                <option value="executive">Executive</option>
+                <option value="startup">Startup</option>
+                <option value="consulting">Consulting</option>
+                <option value="education">Education</option>
+              </select>
+            </label>
+          </div>
+          <button class="primary-action" id="generateBtn" type="button">Generate Deck</button>
+        </section>
+
+        <section class="panel compact">
+          <h2>Export</h2>
+          <button class="secondary-action" id="downloadBtn" type="button">Download PowerPoint</button>
+          <p class="hint">Exports editable text, shapes, bullets, and simple charts as a native .pptx file.</p>
+        </section>
+      </aside>
+
+      <main class="workspace">
+        <header class="topbar">
+          <div>
+            <p class="eyebrow">Personal MVP</p>
+            <h1>Generate presentation drafts in real time</h1>
+          </div>
+          <div class="toolbar">
+            <button class="icon-button" id="addSlideBtn" type="button" title="Add slide">＋</button>
+            <button class="icon-button" id="duplicateSlideBtn" type="button" title="Duplicate selected slide">⧉</button>
+            <button class="icon-button danger" id="deleteSlideBtn" type="button" title="Delete selected slide">⌫</button>
+          </div>
+        </header>
+
+        <section class="studio-grid">
+          <div class="slides-rail" id="slidesRail" aria-label="Slides"></div>
+
+          <section class="editor-surface" aria-label="Slide preview">
+            <div class="slide-stage" id="slideStage"></div>
+          </section>
+
+          <aside class="inspector">
+            <div class="panel">
+              <h2>Slide Content</h2>
+              <label>
+                Title
+                <input id="titleInput" type="text" />
+              </label>
+              <label>
+                Subtitle
+                <input id="subtitleInput" type="text" />
+              </label>
+              <label>
+                Bullets
+                <textarea id="bulletsInput" rows="7"></textarea>
+              </label>
+              <label>
+                Speaker note
+                <textarea id="notesInput" rows="4"></textarea>
+              </label>
+            </div>
+
+            <div class="panel">
+              <h2>Design</h2>
+              <label>
+                Layout
+                <select id="layoutInput">
+                  <option value="hero">Hero</option>
+                  <option value="bullets">Bullets</option>
+                  <option value="metrics">Metrics</option>
+                  <option value="comparison">Comparison</option>
+                  <option value="timeline">Timeline</option>
+                </select>
+              </label>
+              <label>
+                Theme
+                <select id="themeInput">
+                  <option value="aurora">Aurora</option>
+                  <option value="mono">Mono</option>
+                  <option value="signal">Signal</option>
+                  <option value="ember">Ember</option>
+                </select>
+              </label>
+              <div class="swatches" id="swatches"></div>
+            </div>
+          </aside>
+        </section>
+      </main>
+    </div>
+
+    <div class="toast" id="toast" role="status" aria-live="polite"></div>
+    <script src="app.js"></script>
+  </body>
+</html>
