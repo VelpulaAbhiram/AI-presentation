@@ -9,7 +9,7 @@ A personal MVP for generating editable presentation drafts from prompts and expo
 - Slide thumbnails with add, duplicate, and delete controls
 - Clean responsive editor UI
 - Browser-generated `.pptx` export with editable text and shapes
-- Optional OpenAI-powered deck generation through a small local Node server
+- Optional Groq-powered deck generation through a small local Node server
 
 ## Run
 
@@ -22,8 +22,8 @@ Open `index.html` in a browser. This runs the local rule-based generator and doe
 Create a `.env` file:
 
 ```bash
-OPENAI_API_KEY=your_openai_api_key_here
-OPENAI_MODEL=gpt-5.5
+GROQ_API_KEY=your_groq_api_key_here
+GROQ_MODEL=openai/gpt-oss-20b
 ```
 
 Start the local server:
@@ -38,4 +38,4 @@ Open:
 http://localhost:3000
 ```
 
-The app will use the OpenAI model for deck generation. If the API key is missing or the request fails, it falls back to the local generator.
+The app will use the Groq model for deck generation. If the API key is missing or the request fails, it falls back to the local generator.

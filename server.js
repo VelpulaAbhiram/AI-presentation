@@ -8,7 +8,7 @@ const port = Number(process.env.PORT || 3000);
 
 loadEnvFile(path.join(root, ".env"));
 
-const model = process.env.OPENAI_MODEL || "gpt-5.5";
+const model = process.env.GROQ_MODEL || "openai/gpt-oss-20b";
 
 const mimeTypes = {
   ".html": "text/html; charset=utf-8",
@@ -25,24 +25,20 @@ const deckSchema = {
   properties: {
     slides: {
       type: "array",
-      minItems: 4,
-      maxItems: 10,
       items: {
         type: "object",
         additionalProperties: false,
         required: ["title", "subtitle", "layout", "theme", "bullets", "notes"],
         properties: {
-          title: { type: "string", minLength: 3, maxLength: 80 },
-          subtitle: { type: "string", minLength: 3, maxLength: 150 },
+          title: { type: "string" },
+          subtitle: { type: "string" },
           layout: { type: "string", enum: ["hero", "bullets", "metrics", "comparison", "timeline"] },
           theme: { type: "string", enum: ["aurora", "mono", "signal", "ember"] },
           bullets: {
             type: "array",
-            minItems: 2,
-            maxItems: 4,
-            items: { type: "string", minLength: 4, maxLength: 130 },
+            items: { type: "string" },
           },
-          notes: { type: "string", minLength: 8, maxLength: 350 },
+          notes: { type: "string" },
         },
       },
     },
@@ -73,8 +69,8 @@ server.listen(port, () => {
 });
 
 async function handleGenerateDeck(req, res) {
-  if (!process.env.OPENAI_API_KEY) {
-    sendJson(res, 400, { error: "OPENAI_API_KEY is not configured" });
+  if (!process.env.GROQ_API_KEY || process.env.GROQ_API_KEY.includes("your_groq_api_key_here")) {
+    sendJson(res, 400, { error: "GROQ_API_KEY is not configured" });
     return;
   }
 
@@ -88,15 +84,15 @@ async function handleGenerateDeck(req, res) {
     return;
   }
 
-  const response = await fetch("https://api.openai.com/v1/responses", {
+  const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
     method: "POST",
     headers: {
-      Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
+      Authorization: `Bearer ${process.env.GROQ_API_KEY}`,
       "Content-Type": "application/json",
     },
     body: JSON.stringify({
       model,
-      input: [
+      messages: [
         {
           role: "system",
           content:
@@ -107,9 +103,9 @@ async function handleGenerateDeck(req, res) {
           content: `Create a ${slideCount}-slide ${style} presentation deck from this prompt:\n\n${prompt}\n\nReturn exactly ${slideCount} slides. Use a mix of layouts. Keep bullets short enough for slides. Speaker notes should help the presenter explain the slide.`,
         },
       ],
-      text: {
-        format: {
-          type: "json_schema",
+      response_format: {
+        type: "json_schema",
+        json_schema: {
           name: "presentation_deck",
           strict: true,
           schema: deckSchema,
@@ -126,15 +122,15 @@ async function handleGenerateDeck(req, res) {
     return;
   }
 
-  const outputText = extractOutputText(data);
+  const outputText = data.choices?.[0]?.message?.content || "";
   if (!outputText) {
-    sendJson(res, 502, { error: "The model response did not include deck JSON" });
+    sendJson(res, 502, { error: "Groq did not return deck JSON" });
     return;
   }
 
-  const generated = JSON.parse(outputText);
+  const generated = normalizeGeneratedDeck(JSON.parse(outputText), slideCount);
   sendJson(res, 200, {
-    slides: generated.slides.map((slide) => ({
+    slides: generated.map((slide) => ({
       ...slide,
       id: randomUUID(),
     })),
@@ -163,20 +159,6 @@ function serveStatic(req, res) {
     });
     res.end(contents);
   });
-}
-
-function extractOutputText(data) {
-  if (typeof data.output_text === "string") return data.output_text;
-
-  for (const item of data.output || []) {
-    for (const content of item.content || []) {
-      if (content.type === "output_text" && typeof content.text === "string") {
-        return content.text;
-      }
-    }
-  }
-
-  return "";
 }
 
 function readJson(req) {
@@ -211,6 +193,23 @@ function cleanText(value, limit) {
 
 function clamp(value, min, max) {
   return Math.max(min, Math.min(max, value));
+}
+
+function normalizeGeneratedDeck(generated, slideCount) {
+  const layouts = ["hero", "bullets", "metrics", "comparison", "timeline"];
+  const themes = ["aurora", "mono", "signal", "ember"];
+  const slides = Array.isArray(generated.slides) ? generated.slides : [];
+
+  return slides.slice(0, slideCount).map((slide, index) => ({
+    title: cleanText(slide.title, 80) || `Slide ${index + 1}`,
+    subtitle: cleanText(slide.subtitle, 150) || "Generated with Groq.",
+    layout: layouts.includes(slide.layout) ? slide.layout : layouts[index % layouts.length],
+    theme: themes.includes(slide.theme) ? slide.theme : themes[index % themes.length],
+    bullets: Array.isArray(slide.bullets)
+      ? slide.bullets.slice(0, 4).map((bullet) => cleanText(bullet, 130)).filter(Boolean)
+      : ["Key point", "Supporting detail", "Next action"],
+    notes: cleanText(slide.notes, 350) || "Use this slide to advance the presentation story.",
+  }));
 }
 
 function loadEnvFile(filePath) {
