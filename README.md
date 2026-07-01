@@ -13,6 +13,7 @@ A browser-based MVP for generating editable presentation decks with Gemini, prev
 - Native `.pptx` export with editable text, shapes, metrics, notes, and generated images
 - No-AI editable template mode for working without any API key
 - Save/load editable project JSON backups
+- Browser-side PowerPoint export fallback for static/original website usage
 
 ## Local Setup
 
@@ -50,6 +51,8 @@ http://localhost:3000
 ```
 
 Use **Generation mode > Without AI** to create and edit decks without any API key. Use **Use AI provider** when you want Gemini, Claude, Groq, or OpenAI to write the deck.
+
+The app first tries the server PowerPoint export. If the server is unavailable, it falls back to browser-side export using the bundled `pptxgenjs` script.
 
 ## GitHub Codespaces
 

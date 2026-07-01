@@ -519,11 +519,195 @@ async function downloadPptx() {
     toast("PowerPoint exported.");
   } catch (error) {
     console.warn(error);
-    saveProject();
-    toast("PowerPoint failed. Editable project backup downloaded.");
+    try {
+      await browserExportPptx();
+      toast("PowerPoint exported in browser fallback mode.");
+    } catch (fallbackError) {
+      console.warn(fallbackError);
+      saveProject();
+      toast("PowerPoint failed. Editable project backup downloaded.");
+    }
   } finally {
     setButtonLoading(button, false, "Download PowerPoint");
   }
+}
+
+async function browserExportPptx() {
+  const PptxCtor = window.pptxgen || window.PptxGenJS || window.pptxgenjs;
+  if (!PptxCtor) throw new Error("Browser PPTX library is not loaded");
+
+  const pptx = new PptxCtor();
+  pptx.layout = "LAYOUT_WIDE";
+  pptx.author = "AI Presentation Studio";
+  pptx.subject = "Editable presentation";
+  pptx.title = "AI Presentation Studio Deck";
+  pptx.company = "AI Presentation Studio";
+  pptx.theme = {
+    headFontFace: "Aptos Display",
+    bodyFontFace: "Aptos",
+    lang: "en-US",
+  };
+
+  deck.forEach((slide, index) => addBrowserPptxSlide(pptx, slide, index));
+  await pptx.writeFile({ fileName: "ai-presentation-studio-deck.pptx" });
+}
+
+function addBrowserPptxSlide(pptx, deckSlide, index) {
+  const slide = pptx.addSlide();
+  const theme = themes[deckSlide.theme] || themes.aurora;
+
+  slide.background = { color: theme.bg };
+  slide.addShape("rect", {
+    x: 0,
+    y: 0,
+    w: 13.333,
+    h: 7.5,
+    fill: { color: theme.bg },
+    line: { color: theme.bg },
+  });
+  slide.addShape("arc", {
+    x: 10.55,
+    y: -0.28,
+    w: 2.7,
+    h: 2.7,
+    fill: { color: theme.accent2, transparency: 20 },
+    line: { color: theme.accent2, transparency: 100 },
+    rotate: 20,
+  });
+  slide.addShape("rect", {
+    x: 0,
+    y: 7.22,
+    w: 13.333,
+    h: 0.28,
+    fill: { color: theme.accent },
+    line: { color: theme.accent },
+  });
+
+  slide.addText(deckSlide.kicker || "AI STUDIO", {
+    x: 0.65,
+    y: 0.42,
+    w: 4,
+    h: 0.24,
+    fontSize: 8,
+    bold: true,
+    color: theme.accent,
+    margin: 0,
+  });
+  slide.addText(deckSlide.title || "Untitled Slide", {
+    x: 0.65,
+    y: 0.78,
+    w: 7.8,
+    h: 0.85,
+    fontFace: "Aptos Display",
+    fontSize: 30,
+    bold: true,
+    color: theme.ink,
+    fit: "shrink",
+    margin: 0,
+  });
+  slide.addText(deckSlide.subtitle || "", {
+    x: 0.68,
+    y: 1.74,
+    w: 7.2,
+    h: 0.55,
+    fontSize: 13,
+    color: theme.muted,
+    fit: "shrink",
+    margin: 0,
+  });
+
+  if (isBrowserImageUsable(deckSlide.imageDataUrl) && ["cover", "split", "image"].includes(deckSlide.layout)) {
+    slide.addImage({ data: deckSlide.imageDataUrl, x: 8.35, y: 1.05, w: 4.35, h: 3.25 });
+  }
+
+  if (deckSlide.layout === "metrics") {
+    addBrowserMetrics(slide, deckSlide, theme);
+  } else if (deckSlide.layout === "comparison") {
+    addBrowserComparison(slide, deckSlide, theme);
+  } else if (deckSlide.layout === "timeline") {
+    addBrowserTimeline(slide, deckSlide, theme);
+  } else if (deckSlide.layout === "quote") {
+    slide.addText(`"${deckSlide.bullets?.[0] || deckSlide.subtitle || ""}"`, {
+      x: 1.15,
+      y: 3.05,
+      w: 8.6,
+      h: 1.2,
+      fontSize: 26,
+      bold: true,
+      italic: true,
+      color: theme.ink,
+      fit: "shrink",
+      margin: 0,
+    });
+  } else {
+    addBrowserBullets(slide, deckSlide, theme, ["cover", "image"].includes(deckSlide.layout) ? 4.25 : 2.75);
+  }
+
+  slide.addText(String(index + 1).padStart(2, "0"), {
+    x: 12.1,
+    y: 6.95,
+    w: 0.55,
+    h: 0.24,
+    fontSize: 8,
+    color: theme.muted,
+    align: "right",
+    margin: 0,
+  });
+  if (deckSlide.notes) slide.addNotes(deckSlide.notes);
+}
+
+function addBrowserBullets(slide, deckSlide, theme, y) {
+  const items = (deckSlide.bullets || []).slice(0, 5).map((bullet) => ({
+    text: bullet,
+    options: { bullet: { type: "bullet" }, hanging: 4, breakLine: true },
+  }));
+  slide.addText(items, {
+    x: 0.82,
+    y,
+    w: 7.2,
+    h: 2.4,
+    fontSize: 14,
+    color: theme.ink,
+    fit: "shrink",
+    paraSpaceAfterPt: 8,
+    margin: 0.04,
+  });
+}
+
+function addBrowserMetrics(slide, deckSlide, theme) {
+  const metrics = deckSlide.metrics?.length ? deckSlide.metrics : defaultMetrics();
+  metrics.slice(0, 3).forEach((metric, index) => {
+    const x = 0.78 + index * 3.85;
+    slide.addShape("roundRect", { x, y: 3.45, w: 3.08, h: 1.52, fill: { color: theme.surface }, line: { color: theme.line } });
+    slide.addText(metric.value, { x: x + 0.28, y: 3.72, w: 1.8, h: 0.48, fontSize: 28, bold: true, color: theme.accent, margin: 0, fit: "shrink" });
+    slide.addText(metric.label, { x: x + 0.3, y: 4.3, w: 2.35, h: 0.34, fontSize: 10, color: theme.muted, margin: 0, fit: "shrink" });
+  });
+}
+
+function addBrowserComparison(slide, deckSlide, theme) {
+  [
+    ["Before", deckSlide.bullets?.[0] || "Manual workflow is slow.", 7.1, theme.ink],
+    ["After", deckSlide.bullets?.[1] || "AI creates an editable workflow.", 9.75, theme.accent],
+  ].forEach(([title, body, x, color]) => {
+    slide.addShape("roundRect", { x, y: 2.62, w: 2.48, h: 2.42, fill: { color: theme.surface }, line: { color: theme.line } });
+    slide.addText(title, { x: x + 0.25, y: 2.94, w: 1.8, h: 0.34, fontSize: 16, bold: true, color, margin: 0 });
+    slide.addText(body, { x: x + 0.25, y: 3.45, w: 1.86, h: 0.95, fontSize: 10.5, color: theme.muted, fit: "shrink", margin: 0 });
+  });
+}
+
+function addBrowserTimeline(slide, deckSlide, theme) {
+  const items = deckSlide.bullets?.length >= 4 ? deckSlide.bullets.slice(0, 4) : ["Generate", "Preview", "Edit", "Export"];
+  items.forEach((label, index) => {
+    const x = 0.9 + index * 2.9;
+    const filled = index % 2 === 0;
+    slide.addShape("roundRect", { x, y: 3.45, w: 2.38, h: 1.12, fill: { color: filled ? theme.accent : theme.surface }, line: { color: filled ? theme.accent : theme.line } });
+    slide.addText(`0${index + 1}`, { x: x + 0.22, y: 3.66, w: 0.5, h: 0.22, fontSize: 9, bold: true, color: filled ? "FFFFFF" : theme.accent, margin: 0 });
+    slide.addText(label, { x: x + 0.22, y: 3.94, w: 1.72, h: 0.32, fontSize: 13, bold: true, color: filled ? "FFFFFF" : theme.ink, margin: 0, fit: "shrink" });
+  });
+}
+
+function isBrowserImageUsable(value) {
+  return /^data:image\/(png|jpeg|jpg|webp);base64,[a-z0-9+/=]+$/i.test(String(value || "")) && String(value || "").length < 9_000_000;
 }
 
 function saveBlob(blob, filename) {
