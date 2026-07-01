@@ -53,6 +53,12 @@ async function makeDeckFromPrompt() {
   setButtonLoading(generateBtn, true, "Generating...");
 
   try {
+    if ($("generationModeInput").value === "local") {
+      makeLocalDeckFromPrompt();
+      toast("Editable deck created without AI.");
+      return;
+    }
+
     const aiDeck = await generateDeckWithGemini();
     deck = aiDeck;
     selectedIndex = 0;
@@ -63,7 +69,7 @@ async function makeDeckFromPrompt() {
     makeLocalDeckFromPrompt();
     toast("Gemini unavailable. Local draft created so you can keep working.");
   } finally {
-    setButtonLoading(generateBtn, false, "Generate With Gemini");
+    setButtonLoading(generateBtn, false, "Generate Editable Deck");
   }
 }
 
@@ -365,6 +371,7 @@ function renderAiSettings() {
   $("keyStatusPill").textContent = aiSettings.keyMode === "basic" ? "Basic" : aiSettings.apiKey ? "Custom" : "No key";
   $("providerPill").textContent = providerLabel();
   $("imageModelInput").disabled = aiSettings.provider !== "gemini";
+  updateGenerationModeUi();
 }
 
 function readAiSettingsForm() {
@@ -443,7 +450,14 @@ function defaultModelForProvider(provider) {
 function providerLabel() {
   if (aiSettings.provider === "groq") return "Groq";
   if (aiSettings.provider === "openai") return "OpenAI";
+  if (aiSettings.provider === "claude") return "Claude";
   return "Gemini";
+}
+
+function updateGenerationModeUi() {
+  const localMode = $("generationModeInput").value === "local";
+  $("providerPill").textContent = localMode ? "No AI" : providerLabel();
+  $("includeImagesInput").disabled = localMode;
 }
 
 function clearSlideImage() {
@@ -505,7 +519,8 @@ async function downloadPptx() {
     toast("PowerPoint exported.");
   } catch (error) {
     console.warn(error);
-    toast("Export failed. Keep the server running and try again.");
+    saveProject();
+    toast("PowerPoint failed. Editable project backup downloaded.");
   } finally {
     setButtonLoading(button, false, "Download PowerPoint");
   }
@@ -515,8 +530,42 @@ function saveBlob(blob, filename) {
   const link = document.createElement("a");
   link.href = URL.createObjectURL(blob);
   link.download = filename;
+  link.style.display = "none";
+  document.body.appendChild(link);
   link.click();
   URL.revokeObjectURL(link.href);
+  link.remove();
+}
+
+function saveProject() {
+  const project = {
+    version: 1,
+    savedAt: new Date().toISOString(),
+    slides: deck,
+  };
+  const blob = new Blob([JSON.stringify(project, null, 2)], { type: "application/json" });
+  saveBlob(blob, "ai-presentation-studio-project.json");
+}
+
+async function loadProject(event) {
+  const file = event.target.files?.[0];
+  if (!file) return;
+
+  try {
+    const text = await file.text();
+    const project = JSON.parse(text);
+    const slides = Array.isArray(project.slides) ? project.slides : Array.isArray(project) ? project : [];
+    if (!slides.length) throw new Error("No slides found");
+    deck = slides.map(normalizeSlide);
+    selectedIndex = 0;
+    render();
+    toast("Editable project loaded.");
+  } catch (error) {
+    console.warn(error);
+    toast("Could not load that project file.");
+  } finally {
+    event.target.value = "";
+  }
 }
 
 function openPreview() {
@@ -556,6 +605,8 @@ function toast(message) {
 
 $("generateBtn").addEventListener("click", makeDeckFromPrompt);
 $("downloadBtn").addEventListener("click", downloadPptx);
+$("saveProjectBtn").addEventListener("click", saveProject);
+$("loadProjectInput").addEventListener("change", loadProject);
 $("previewBtn").addEventListener("click", openPreview);
 $("closePreviewBtn").addEventListener("click", closePreview);
 $("prevPreviewBtn").addEventListener("click", () => movePreview(-1));
@@ -574,6 +625,7 @@ $("providerInput").addEventListener("change", () => {
   readAiSettingsForm();
 });
 $("keyModeInput").addEventListener("change", readAiSettingsForm);
+$("generationModeInput").addEventListener("change", updateGenerationModeUi);
 
 ["kickerInput", "titleInput", "subtitleInput", "bulletsInput", "notesInput", "layoutInput", "themeInput", "visualPromptInput"].forEach((id) => {
   $(id).addEventListener("input", syncInspector);

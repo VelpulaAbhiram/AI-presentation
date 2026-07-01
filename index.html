@@ -52,11 +52,18 @@
               <option value="minimal executive report with data emphasis">Executive Report</option>
             </select>
           </label>
+          <label>
+            Generation mode
+            <select id="generationModeInput">
+              <option value="local">Without AI - editable template</option>
+              <option value="ai">Use AI provider</option>
+            </select>
+          </label>
           <label class="toggle-row">
             <input id="includeImagesInput" type="checkbox" checked />
             <span>Ask Gemini for slide visual prompts</span>
           </label>
-          <button class="primary-action" id="generateBtn" type="button">Generate With Gemini</button>
+          <button class="primary-action" id="generateBtn" type="button">Generate Editable Deck</button>
         </section>
 
         <section class="panel ai-settings-panel">
@@ -108,6 +115,11 @@
           </div>
           <button class="secondary-action" id="previewBtn" type="button">Open Preview</button>
           <button class="secondary-action strong" id="downloadBtn" type="button">Download PowerPoint</button>
+          <button class="secondary-action" id="saveProjectBtn" type="button">Save Editable Project</button>
+          <label class="file-action">
+            Load Project
+            <input id="loadProjectInput" type="file" accept="application/json" />
+          </label>
           <p class="hint">Exports editable text, shapes, charts, and generated images into a native .pptx file.</p>
         </section>
       </aside>

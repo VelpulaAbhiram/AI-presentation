@@ -393,7 +393,7 @@ function addPptxSlide(pptx, deckSlide, index) {
     fit: "shrink",
   });
 
-  if (deckSlide.imageDataUrl && ["cover", "split", "image"].includes(deckSlide.layout)) {
+  if (isUsableImageDataUrl(deckSlide.imageDataUrl) && ["cover", "split", "image"].includes(deckSlide.layout)) {
     slide.addImage({ data: deckSlide.imageDataUrl, x: 8.35, y: 1.05, w: 4.35, h: 3.25 });
   }
 
@@ -696,6 +696,11 @@ function cleanApiKey(value) {
   const key = cleanText(value, 400);
   if (!key || key.startsWith("your_") || key.includes("_api_key_here")) return "";
   return key;
+}
+
+function isUsableImageDataUrl(value) {
+  const text = String(value || "");
+  return /^data:image\/(png|jpeg|jpg|webp);base64,[a-z0-9+/=]+$/i.test(text) && text.length < 9_000_000;
 }
 
 function serveStatic(req, res) {

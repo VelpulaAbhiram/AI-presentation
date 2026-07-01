@@ -11,6 +11,8 @@ A browser-based MVP for generating editable presentation decks with Gemini, prev
 - Bring-your-own-key settings with basic website key or custom user key modes
 - Full-deck preview modal before export
 - Native `.pptx` export with editable text, shapes, metrics, notes, and generated images
+- No-AI editable template mode for working without any API key
+- Save/load editable project JSON backups
 
 ## Local Setup
 
@@ -46,6 +48,8 @@ Open:
 ```text
 http://localhost:3000
 ```
+
+Use **Generation mode > Without AI** to create and edit decks without any API key. Use **Use AI provider** when you want Gemini, Claude, Groq, or OpenAI to write the deck.
 
 ## GitHub Codespaces
 
