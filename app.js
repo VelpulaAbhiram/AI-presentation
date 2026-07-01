@@ -524,8 +524,7 @@ async function downloadPptx() {
       toast("PowerPoint exported in browser fallback mode.");
     } catch (fallbackError) {
       console.warn(fallbackError);
-      saveProject();
-      toast("PowerPoint failed. Editable project backup downloaded.");
+      toast("PowerPoint download failed. Try Codespaces/local server or use Save Editable Project.");
     }
   } finally {
     setButtonLoading(button, false, "Download PowerPoint");
@@ -549,7 +548,8 @@ async function browserExportPptx() {
   };
 
   deck.forEach((slide, index) => addBrowserPptxSlide(pptx, slide, index));
-  await pptx.writeFile({ fileName: "ai-presentation-studio-deck.pptx" });
+  const blob = await pptx.write({ outputType: "blob" });
+  saveBlob(blob, "ai-presentation-studio-deck.pptx");
 }
 
 function addBrowserPptxSlide(pptx, deckSlide, index) {
