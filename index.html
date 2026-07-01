@@ -59,6 +59,49 @@
           <button class="primary-action" id="generateBtn" type="button">Generate With Gemini</button>
         </section>
 
+        <section class="panel ai-settings-panel">
+          <div class="panel-title">
+            <h2>AI Settings</h2>
+            <span class="status-pill" id="keyStatusPill">Local</span>
+          </div>
+          <label>
+            Provider
+            <select id="providerInput">
+              <option value="gemini">Google Gemini</option>
+              <option value="groq">Groq</option>
+              <option value="openai">OpenAI</option>
+              <option value="claude">Claude</option>
+            </select>
+          </label>
+          <label>
+            Key mode
+            <select id="keyModeInput">
+              <option value="basic">Use basic website key</option>
+              <option value="custom">Use my custom API key</option>
+            </select>
+          </label>
+          <label>
+            API key
+            <input id="apiKeyInput" type="password" placeholder="Paste your API key" autocomplete="off" />
+          </label>
+          <div class="field-grid">
+            <label>
+              Deck model
+              <input id="modelInput" type="text" placeholder="gemini-3.5-flash" />
+            </label>
+            <label>
+              Image model
+              <input id="imageModelInput" type="text" placeholder="Optional Gemini image model" />
+            </label>
+          </div>
+          <div class="settings-actions">
+            <button class="secondary-action strong" id="saveAiSettingsBtn" type="button">Save Settings</button>
+            <button class="secondary-action" id="testAiSettingsBtn" type="button">Test</button>
+            <button class="secondary-action" id="clearAiSettingsBtn" type="button">Clear</button>
+          </div>
+          <p class="hint">Basic key uses the server env key. Custom keys stay in this browser. Image generation currently uses Gemini.</p>
+        </section>
+
         <section class="panel">
           <div class="panel-title">
             <h2>Export</h2>

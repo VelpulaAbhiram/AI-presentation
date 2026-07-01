@@ -11,6 +11,9 @@ loadEnvFile(path.join(root, ".env"));
 
 const geminiModel = process.env.GEMINI_MODEL || "gemini-3.5-flash";
 const geminiImageModel = process.env.GEMINI_IMAGE_MODEL || "gemini-3.1-flash-image";
+const groqModel = process.env.GROQ_MODEL || "openai/gpt-oss-20b";
+const openAiModel = process.env.OPENAI_MODEL || "gpt-4.1-mini";
+const claudeModel = process.env.CLAUDE_MODEL || "claude-sonnet-4-5";
 
 const mimeTypes = {
   ".html": "text/html; charset=utf-8",
@@ -89,88 +92,99 @@ server.listen(port, () => {
 });
 
 async function handleGenerateDeck(req, res) {
-  if (!isGeminiConfigured()) {
-    sendJson(res, 400, { error: "GEMINI_API_KEY is not configured" });
-    return;
-  }
-
   const body = await readJson(req);
   const prompt = cleanText(body.prompt, 3000);
   const style = cleanText(body.style || "executive", 60);
   const designPack = cleanText(body.designPack || "premium", 60);
   const slideCount = clamp(Number(body.slideCount) || 7, 4, 12);
   const includeImages = Boolean(body.includeImages);
+  const ai = resolveAiSettings(body.aiSettings, "deck");
 
   if (!prompt) {
     sendJson(res, 400, { error: "Prompt is required" });
     return;
   }
 
+  if (!ai.apiKey) {
+    sendJson(res, 400, { error: `${ai.label} API key is not configured` });
+    return;
+  }
+
+  const { instruction, userPrompt } = buildDeckPrompt({ prompt, style, designPack, slideCount, includeImages });
+  let parsed;
+
+  if (ai.provider === "gemini") {
+    const data = await callGeminiGenerate(ai.model, ai.apiKey, {
+      systemInstruction: { parts: [{ text: instruction }] },
+      contents: [{ role: "user", parts: [{ text: userPrompt }] }],
+      generationConfig: {
+        temperature: 0.85,
+        responseMimeType: "application/json",
+        responseSchema: deckSchema,
+      },
+    });
+
+    const outputText = extractGeminiText(data);
+    if (!outputText) {
+      sendJson(res, 502, { error: "Gemini did not return deck JSON" });
+      return;
+    }
+    parsed = JSON.parse(outputText);
+  } else if (ai.provider === "claude") {
+    parsed = await callClaudeDeck(ai, instruction, userPrompt);
+  } else {
+    parsed = await callOpenAiCompatibleDeck(ai, instruction, userPrompt);
+  }
+
+  const slides = normalizeGeneratedDeck(parsed, slideCount).map((slide) => ({
+    ...slide,
+    id: randomUUID(),
+  }));
+
+  sendJson(res, 200, { provider: ai.label, model: ai.model, slides });
+}
+
+function buildDeckPrompt({ prompt, style, designPack, slideCount, includeImages }) {
   const instruction = [
     "You are an elite presentation strategist, designer, and editor.",
     "Create a high-quality editable presentation plan for a web app that exports to PowerPoint.",
     "Use concise titles, specific business language, and slide-ready bullets.",
     "Avoid filler, fake citations, and long paragraphs.",
     "Every slide should have a clear job in the narrative.",
+    "Return JSON only. Do not wrap it in markdown.",
+    'Use this shape: {"slides":[{"title":"","subtitle":"","kicker":"","layout":"cover|split|bullets|metrics|comparison|timeline|quote|image","theme":"aurora|graphite|prism|meadow|ember|ocean|royal|sunset","bullets":[""],"metrics":[{"value":"","label":""}],"visualPrompt":"","notes":""}]}',
     `Return exactly ${slideCount} slides.`,
     `Presentation style: ${style}.`,
     `Design pack: ${designPack}.`,
     `Image prompts: ${includeImages ? "include vivid visualPrompt values for visual slides" : "include visualPrompt only when useful"}.`,
   ].join("\n");
-
-  const data = await callGeminiGenerate(geminiModel, {
-    systemInstruction: { parts: [{ text: instruction }] },
-    contents: [
-      {
-        role: "user",
-        parts: [{ text: `Build the deck from this prompt:\n\n${prompt}` }],
-      },
-    ],
-    generationConfig: {
-      temperature: 0.85,
-      responseMimeType: "application/json",
-      responseSchema: deckSchema,
-    },
-  });
-
-  const outputText = extractGeminiText(data);
-  if (!outputText) {
-    sendJson(res, 502, { error: "Gemini did not return deck JSON" });
-    return;
-  }
-
-  const parsed = JSON.parse(outputText);
-  const slides = normalizeGeneratedDeck(parsed, slideCount).map((slide) => ({
-    ...slide,
-    id: randomUUID(),
-  }));
-
-  sendJson(res, 200, { provider: "Gemini", model: geminiModel, slides });
+  return { instruction, userPrompt: `Build the deck from this prompt:\n\n${prompt}` };
 }
 
 async function handleGenerateImage(req, res) {
-  if (!isGeminiConfigured()) {
-    sendJson(res, 400, { error: "GEMINI_API_KEY is not configured" });
-    return;
-  }
-
   const body = await readJson(req);
   const prompt = cleanText(body.prompt, 1600);
   const theme = getTheme(body.theme);
+  const ai = resolveImageSettings(body.aiSettings);
 
   if (!prompt) {
     sendJson(res, 400, { error: "Image prompt is required" });
     return;
   }
 
+  if (!ai.apiKey) {
+    sendJson(res, 400, { error: "Image generation requires a Gemini API key" });
+    return;
+  }
+
   const data = await fetch("https://generativelanguage.googleapis.com/v1beta/interactions", {
     method: "POST",
     headers: {
-      "x-goog-api-key": process.env.GEMINI_API_KEY,
+      "x-goog-api-key": ai.apiKey,
       "Content-Type": "application/json",
     },
     body: JSON.stringify({
-      model: geminiImageModel,
+      model: ai.imageModel,
       input: [
         {
           type: "text",
@@ -237,9 +251,9 @@ async function handleExportPptx(req, res) {
   res.end(buffer);
 }
 
-async function callGeminiGenerate(model, payload) {
+async function callGeminiGenerate(model, apiKey, payload) {
   const response = await fetch(
-    `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(process.env.GEMINI_API_KEY)}`,
+    `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(apiKey)}`,
     {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -253,6 +267,77 @@ async function callGeminiGenerate(model, payload) {
   }
 
   return data;
+}
+
+async function callOpenAiCompatibleDeck(ai, instruction, userPrompt) {
+  const endpoint = ai.provider === "groq"
+    ? "https://api.groq.com/openai/v1/chat/completions"
+    : "https://api.openai.com/v1/chat/completions";
+
+  const response = await fetch(endpoint, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${ai.apiKey}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      model: ai.model,
+      messages: [
+        { role: "system", content: instruction },
+        { role: "user", content: userPrompt },
+      ],
+      temperature: 0.8,
+      response_format: { type: "json_object" },
+    }),
+  });
+
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    throw new Error(data.error?.message || `${ai.label} request failed`);
+  }
+
+  const outputText = data.choices?.[0]?.message?.content || "";
+  if (!outputText) throw new Error(`${ai.label} did not return deck JSON`);
+  return parseJsonFromModel(outputText);
+}
+
+async function callClaudeDeck(ai, instruction, userPrompt) {
+  const response = await fetch("https://api.anthropic.com/v1/messages", {
+    method: "POST",
+    headers: {
+      "x-api-key": ai.apiKey,
+      "anthropic-version": "2023-06-01",
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      model: ai.model,
+      max_tokens: 5000,
+      temperature: 0.8,
+      system: instruction,
+      messages: [{ role: "user", content: userPrompt }],
+    }),
+  });
+
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    throw new Error(data.error?.message || "Claude request failed");
+  }
+
+  const outputText = (data.content || []).map((part) => part.text || "").join("").trim();
+  if (!outputText) throw new Error("Claude did not return deck JSON");
+  return parseJsonFromModel(outputText);
+}
+
+function parseJsonFromModel(text) {
+  const raw = String(text || "").trim();
+  try {
+    return JSON.parse(raw);
+  } catch {
+    const start = raw.indexOf("{");
+    const end = raw.lastIndexOf("}");
+    if (start === -1 || end === -1 || end <= start) throw new Error("Model did not return valid JSON");
+    return JSON.parse(raw.slice(start, end + 1));
+  }
 }
 
 function addPptxSlide(pptx, deckSlide, index) {
@@ -546,8 +631,71 @@ function getTheme(name) {
   return themes[name] || themes.aurora;
 }
 
-function isGeminiConfigured() {
-  return Boolean(process.env.GEMINI_API_KEY && !process.env.GEMINI_API_KEY.includes("your_gemini_api_key_here"));
+function resolveAiSettings(settings = {}, capability = "deck") {
+  const provider = cleanText(settings.provider || process.env.AI_PROVIDER || "gemini", 20).toLowerCase();
+  const safeProvider = ["gemini", "groq", "openai", "claude"].includes(provider) ? provider : "gemini";
+  const useCustomKey = cleanText(settings.keyMode || "basic", 20) === "custom";
+
+  if (safeProvider === "groq") {
+    return {
+      provider: "groq",
+      label: "Groq",
+      apiKey: useCustomKey ? cleanApiKey(settings.apiKey) : cleanApiKey(process.env.GROQ_API_KEY),
+      model: cleanText(settings.model, 80) || groqModel,
+      imageModel: geminiImageModel,
+      capability,
+    };
+  }
+
+  if (safeProvider === "openai") {
+    return {
+      provider: "openai",
+      label: "OpenAI",
+      apiKey: useCustomKey ? cleanApiKey(settings.apiKey) : cleanApiKey(process.env.OPENAI_API_KEY),
+      model: cleanText(settings.model, 80) || openAiModel,
+      imageModel: geminiImageModel,
+      capability,
+    };
+  }
+
+  if (safeProvider === "claude") {
+    return {
+      provider: "claude",
+      label: "Claude",
+      apiKey: useCustomKey ? cleanApiKey(settings.apiKey) : cleanApiKey(process.env.CLAUDE_API_KEY),
+      model: cleanText(settings.model, 80) || claudeModel,
+      imageModel: geminiImageModel,
+      capability,
+    };
+  }
+
+  return {
+    provider: "gemini",
+    label: "Gemini",
+    apiKey: useCustomKey ? cleanApiKey(settings.apiKey) : cleanApiKey(process.env.GEMINI_API_KEY),
+    model: cleanText(settings.model, 80) || geminiModel,
+    imageModel: cleanText(settings.imageModel, 80) || geminiImageModel,
+    capability,
+  };
+}
+
+function resolveImageSettings(settings = {}) {
+  const provider = cleanText(settings.provider || "gemini", 20).toLowerCase();
+  const useCustomGemini = provider === "gemini" && cleanText(settings.keyMode || "basic", 20) === "custom";
+  return {
+    provider: "gemini",
+    label: "Gemini",
+    apiKey: useCustomGemini ? cleanApiKey(settings.apiKey) : cleanApiKey(process.env.GEMINI_API_KEY),
+    model: geminiModel,
+    imageModel: cleanText(settings.imageModel, 80) || geminiImageModel,
+    capability: "image",
+  };
+}
+
+function cleanApiKey(value) {
+  const key = cleanText(value, 400);
+  if (!key || key.startsWith("your_") || key.includes("_api_key_here")) return "";
+  return key;
 }
 
 function serveStatic(req, res) {
@@ -579,7 +727,7 @@ function readJson(req) {
     let raw = "";
     req.on("data", (chunk) => {
       raw += chunk;
-      if (raw.length > 3_000_000) {
+      if (raw.length > 20_000_000) {
         req.destroy();
         reject(new Error("Request body too large"));
       }

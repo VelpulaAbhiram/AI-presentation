@@ -153,6 +153,11 @@ select:focus {
   box-shadow: 0 0 0 3px rgba(0, 166, 166, 0.14);
 }
 
+input:disabled {
+  color: #8a95a5;
+  background: #eef2f6;
+}
+
 .field-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -194,6 +199,16 @@ select:focus {
 .secondary-action.strong {
   background: #111827;
   color: #fff;
+}
+
+.settings-actions {
+  display: grid;
+  grid-template-columns: 1fr 0.62fr 0.62fr;
+  gap: 8px;
+}
+
+.settings-actions .secondary-action {
+  margin-top: 0;
 }
 
 .workspace {

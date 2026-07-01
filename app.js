@@ -14,6 +14,13 @@ const layouts = ["cover", "split", "bullets", "metrics", "comparison", "timeline
 let deck = [];
 let selectedIndex = 0;
 let previewIndex = 0;
+let aiSettings = {
+  provider: "gemini",
+  keyMode: "basic",
+  apiKey: "",
+  model: "gemini-3.5-flash",
+  imageModel: "",
+};
 
 const $ = (id) => document.getElementById(id);
 
@@ -50,7 +57,7 @@ async function makeDeckFromPrompt() {
     deck = aiDeck;
     selectedIndex = 0;
     render();
-    toast("Gemini deck generated. Preview, edit, or add visuals.");
+    toast(`${providerLabel()} deck generated. Preview, edit, or add visuals.`);
   } catch (error) {
     console.warn(error);
     makeLocalDeckFromPrompt();
@@ -61,7 +68,7 @@ async function makeDeckFromPrompt() {
 }
 
 async function generateDeckWithGemini() {
-  if (location.protocol === "file:") throw new Error("Run the server to use Gemini.");
+  if (location.protocol === "file:") throw new Error("Run the server to use AI.");
 
   const response = await fetch("/api/generate-deck", {
     method: "POST",
@@ -72,13 +79,14 @@ async function generateDeckWithGemini() {
       style: $("styleSelect").value,
       designPack: $("designPackInput").value,
       includeImages: $("includeImagesInput").checked,
+      aiSettings: requestAiSettings(),
     }),
   });
 
   const data = await response.json();
   if (!response.ok) throw new Error(data.error || "Gemini generation failed");
 
-  $("providerPill").textContent = `${data.provider || "Gemini"} AI`;
+  $("providerPill").textContent = `${data.provider || providerLabel()} AI`;
   return data.slides.map(normalizeSlide);
 }
 
@@ -318,7 +326,7 @@ async function generateImageForSlide() {
     const response = await fetch("/api/generate-image", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ prompt: slide.visualPrompt, theme: slide.theme }),
+      body: JSON.stringify({ prompt: slide.visualPrompt, theme: slide.theme, aiSettings: requestAiSettings() }),
     });
     const data = await response.json();
     if (!response.ok) throw new Error(data.error || "Image generation failed");
@@ -332,6 +340,110 @@ async function generateImageForSlide() {
   } finally {
     setButtonLoading(button, false, "Generate Slide Image");
   }
+}
+
+function loadAiSettings() {
+  const saved = localStorage.getItem("aiPresentationStudio.aiSettings");
+  if (saved) {
+    try {
+      aiSettings = { ...aiSettings, ...JSON.parse(saved) };
+    } catch (error) {
+      console.warn(error);
+    }
+  }
+  renderAiSettings();
+}
+
+function renderAiSettings() {
+  $("providerInput").value = aiSettings.provider;
+  $("keyModeInput").value = aiSettings.keyMode;
+  $("apiKeyInput").value = aiSettings.apiKey;
+  $("modelInput").value = aiSettings.model || defaultModelForProvider(aiSettings.provider);
+  $("imageModelInput").value = aiSettings.imageModel || "";
+  $("apiKeyInput").disabled = aiSettings.keyMode === "basic";
+  $("apiKeyInput").placeholder = aiSettings.keyMode === "basic" ? "Using server key" : "Paste your API key";
+  $("keyStatusPill").textContent = aiSettings.keyMode === "basic" ? "Basic" : aiSettings.apiKey ? "Custom" : "No key";
+  $("providerPill").textContent = providerLabel();
+  $("imageModelInput").disabled = aiSettings.provider !== "gemini";
+}
+
+function readAiSettingsForm() {
+  const provider = $("providerInput").value;
+  aiSettings = {
+    provider,
+    keyMode: $("keyModeInput").value,
+    apiKey: $("apiKeyInput").value.trim(),
+    model: $("modelInput").value.trim() || defaultModelForProvider(provider),
+    imageModel: $("imageModelInput").value.trim(),
+  };
+  renderAiSettings();
+}
+
+function requestAiSettings() {
+  return {
+    ...aiSettings,
+    apiKey: aiSettings.keyMode === "custom" ? aiSettings.apiKey : "",
+  };
+}
+
+function saveAiSettings() {
+  readAiSettingsForm();
+  localStorage.setItem("aiPresentationStudio.aiSettings", JSON.stringify(aiSettings));
+  toast(`${providerLabel()} settings saved in this browser.`);
+}
+
+function clearAiSettings() {
+  localStorage.removeItem("aiPresentationStudio.aiSettings");
+  aiSettings = {
+    provider: "gemini",
+    keyMode: "basic",
+    apiKey: "",
+    model: "gemini-3.5-flash",
+    imageModel: "",
+  };
+  renderAiSettings();
+  toast("AI settings cleared.");
+}
+
+async function testAiSettings() {
+  readAiSettingsForm();
+  const button = $("testAiSettingsBtn");
+  setButtonLoading(button, true, "Testing...");
+  try {
+    const response = await fetch("/api/generate-deck", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        prompt: "Create a four slide test deck for an AI presentation app.",
+        slideCount: 4,
+        style: "test",
+        designPack: "clean",
+        includeImages: false,
+        aiSettings: requestAiSettings(),
+      }),
+    });
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.error || "Test failed");
+    toast(`${data.provider || providerLabel()} key works.`);
+  } catch (error) {
+    console.warn(error);
+    toast(error.message || "AI settings test failed.");
+  } finally {
+    setButtonLoading(button, false, "Test");
+  }
+}
+
+function defaultModelForProvider(provider) {
+  if (provider === "groq") return "openai/gpt-oss-20b";
+  if (provider === "openai") return "gpt-4.1-mini";
+  if (provider === "claude") return "claude-sonnet-4-5";
+  return "gemini-3.5-flash";
+}
+
+function providerLabel() {
+  if (aiSettings.provider === "groq") return "Groq";
+  if (aiSettings.provider === "openai") return "OpenAI";
+  return "Gemini";
 }
 
 function clearSlideImage() {
@@ -453,9 +565,19 @@ $("duplicateSlideBtn").addEventListener("click", duplicateSlide);
 $("deleteSlideBtn").addEventListener("click", deleteSlide);
 $("generateImageBtn").addEventListener("click", generateImageForSlide);
 $("clearImageBtn").addEventListener("click", clearSlideImage);
+$("saveAiSettingsBtn").addEventListener("click", saveAiSettings);
+$("testAiSettingsBtn").addEventListener("click", testAiSettings);
+$("clearAiSettingsBtn").addEventListener("click", clearAiSettings);
+$("providerInput").addEventListener("change", () => {
+  const provider = $("providerInput").value;
+  $("modelInput").value = defaultModelForProvider(provider);
+  readAiSettingsForm();
+});
+$("keyModeInput").addEventListener("change", readAiSettingsForm);
 
 ["kickerInput", "titleInput", "subtitleInput", "bulletsInput", "notesInput", "layoutInput", "themeInput", "visualPromptInput"].forEach((id) => {
   $(id).addEventListener("input", syncInspector);
 });
 
+loadAiSettings();
 makeLocalDeckFromPrompt();
