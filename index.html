@@ -10,79 +10,98 @@
     <div class="app-shell">
       <aside class="sidebar">
         <div class="brand-lockup">
-          <div class="brand-mark">A</div>
+          <div class="brand-mark">AI</div>
           <div>
             <strong>AI Presentation Studio</strong>
-            <span>Prompt to editable PPTX</span>
+            <span>Gemini-powered deck builder</span>
           </div>
         </div>
 
-        <nav class="nav-list" aria-label="Workspace">
-          <button class="nav-item active" type="button" data-view="studio">
-            <span>✦</span> Studio
-          </button>
-          <button class="nav-item" type="button" data-view="templates">
-            <span>▦</span> Templates
-          </button>
-          <button class="nav-item" type="button" data-view="brand">
-            <span>◐</span> Brand
-          </button>
-        </nav>
-
-        <section class="panel compact">
-          <h2>Deck Setup</h2>
+        <section class="panel setup-panel">
+          <div class="panel-title">
+            <h2>Generate</h2>
+            <span class="status-pill" id="providerPill">Gemini</span>
+          </div>
           <label>
             Presentation prompt
-            <textarea id="promptInput" rows="8">Create a clean Series A pitch deck for an AI presentation design tool that helps teams generate editable PowerPoint decks from prompts.</textarea>
+            <textarea id="promptInput" rows="8">Create a premium launch deck for an AI website that generates editable PowerPoint presentations from prompts, includes image generation, and helps teams preview and edit slides before export.</textarea>
           </label>
           <div class="field-grid">
             <label>
               Slides
-              <input id="slideCount" type="number" min="4" max="10" value="7" />
+              <input id="slideCount" type="number" min="4" max="12" value="8" />
             </label>
             <label>
-              Style
+              Story
               <select id="styleSelect">
-                <option value="executive">Executive</option>
-                <option value="startup">Startup</option>
-                <option value="consulting">Consulting</option>
-                <option value="education">Education</option>
+                <option value="startup pitch">Startup</option>
+                <option value="executive board deck">Executive</option>
+                <option value="consulting strategy">Consulting</option>
+                <option value="product marketing">Marketing</option>
+                <option value="education explainer">Education</option>
               </select>
             </label>
           </div>
-          <button class="primary-action" id="generateBtn" type="button">Generate Deck</button>
+          <label>
+            Design pack
+            <select id="designPackInput">
+              <option value="premium SaaS with modern editorial layouts">Premium SaaS</option>
+              <option value="bold investor pitch with high contrast">Investor Pitch</option>
+              <option value="clean consulting deck with strong hierarchy">Consulting Clean</option>
+              <option value="colorful product launch with visual storytelling">Product Launch</option>
+              <option value="minimal executive report with data emphasis">Executive Report</option>
+            </select>
+          </label>
+          <label class="toggle-row">
+            <input id="includeImagesInput" type="checkbox" checked />
+            <span>Ask Gemini for slide visual prompts</span>
+          </label>
+          <button class="primary-action" id="generateBtn" type="button">Generate With Gemini</button>
         </section>
 
-        <section class="panel compact">
-          <h2>Export</h2>
-          <button class="secondary-action" id="downloadBtn" type="button">Download PowerPoint</button>
-          <p class="hint">Exports editable text, shapes, bullets, and simple charts as a native .pptx file.</p>
+        <section class="panel">
+          <div class="panel-title">
+            <h2>Export</h2>
+          </div>
+          <button class="secondary-action" id="previewBtn" type="button">Open Preview</button>
+          <button class="secondary-action strong" id="downloadBtn" type="button">Download PowerPoint</button>
+          <p class="hint">Exports editable text, shapes, charts, and generated images into a native .pptx file.</p>
         </section>
       </aside>
 
       <main class="workspace">
         <header class="topbar">
           <div>
-            <p class="eyebrow">Personal MVP</p>
-            <h1>Generate presentation drafts in real time</h1>
+            <p class="eyebrow">Website MVP</p>
+            <h1>Design sharper presentations with Gemini</h1>
           </div>
           <div class="toolbar">
-            <button class="icon-button" id="addSlideBtn" type="button" title="Add slide">＋</button>
-            <button class="icon-button" id="duplicateSlideBtn" type="button" title="Duplicate selected slide">⧉</button>
-            <button class="icon-button danger" id="deleteSlideBtn" type="button" title="Delete selected slide">⌫</button>
+            <button class="icon-button" id="addSlideBtn" type="button" title="Add slide">+</button>
+            <button class="icon-button" id="duplicateSlideBtn" type="button" title="Duplicate selected slide">Copy</button>
+            <button class="icon-button danger" id="deleteSlideBtn" type="button" title="Delete selected slide">Del</button>
           </div>
         </header>
 
         <section class="studio-grid">
           <div class="slides-rail" id="slidesRail" aria-label="Slides"></div>
 
-          <section class="editor-surface" aria-label="Slide preview">
+          <section class="editor-surface" aria-label="Slide canvas">
+            <div class="canvas-topline">
+              <span id="slideCounter">Slide 1</span>
+              <span>Live editable preview</span>
+            </div>
             <div class="slide-stage" id="slideStage"></div>
           </section>
 
           <aside class="inspector">
             <div class="panel">
-              <h2>Slide Content</h2>
+              <div class="panel-title">
+                <h2>Edit Slide</h2>
+              </div>
+              <label>
+                Kicker
+                <input id="kickerInput" type="text" />
+              </label>
               <label>
                 Title
                 <input id="titleInput" type="text" />
@@ -93,40 +112,78 @@
               </label>
               <label>
                 Bullets
-                <textarea id="bulletsInput" rows="7"></textarea>
+                <textarea id="bulletsInput" rows="6"></textarea>
               </label>
               <label>
                 Speaker note
-                <textarea id="notesInput" rows="4"></textarea>
+                <textarea id="notesInput" rows="3"></textarea>
               </label>
             </div>
 
             <div class="panel">
-              <h2>Design</h2>
-              <label>
-                Layout
-                <select id="layoutInput">
-                  <option value="hero">Hero</option>
-                  <option value="bullets">Bullets</option>
-                  <option value="metrics">Metrics</option>
-                  <option value="comparison">Comparison</option>
-                  <option value="timeline">Timeline</option>
-                </select>
-              </label>
-              <label>
-                Theme
-                <select id="themeInput">
-                  <option value="aurora">Aurora</option>
-                  <option value="mono">Mono</option>
-                  <option value="signal">Signal</option>
-                  <option value="ember">Ember</option>
-                </select>
-              </label>
+              <div class="panel-title">
+                <h2>Design</h2>
+              </div>
+              <div class="field-grid">
+                <label>
+                  Layout
+                  <select id="layoutInput">
+                    <option value="cover">Cover</option>
+                    <option value="split">Split</option>
+                    <option value="bullets">Bullets</option>
+                    <option value="metrics">Metrics</option>
+                    <option value="comparison">Comparison</option>
+                    <option value="timeline">Timeline</option>
+                    <option value="quote">Quote</option>
+                    <option value="image">Image</option>
+                  </select>
+                </label>
+                <label>
+                  Theme
+                  <select id="themeInput">
+                    <option value="aurora">Aurora</option>
+                    <option value="graphite">Graphite</option>
+                    <option value="prism">Prism</option>
+                    <option value="meadow">Meadow</option>
+                    <option value="ember">Ember</option>
+                    <option value="ocean">Ocean</option>
+                    <option value="royal">Royal</option>
+                    <option value="sunset">Sunset</option>
+                  </select>
+                </label>
+              </div>
               <div class="swatches" id="swatches"></div>
+              <div class="theme-chips" id="themeChips"></div>
+            </div>
+
+            <div class="panel">
+              <div class="panel-title">
+                <h2>AI Visual</h2>
+              </div>
+              <label>
+                Image prompt
+                <textarea id="visualPromptInput" rows="4"></textarea>
+              </label>
+              <button class="secondary-action strong" id="generateImageBtn" type="button">Generate Slide Image</button>
+              <button class="secondary-action" id="clearImageBtn" type="button">Clear Image</button>
             </div>
           </aside>
         </section>
       </main>
+    </div>
+
+    <div class="preview-modal" id="previewModal" aria-hidden="true">
+      <div class="preview-shell">
+        <div class="preview-topbar">
+          <strong>Deck Preview</strong>
+          <div>
+            <button class="secondary-action" id="prevPreviewBtn" type="button">Previous</button>
+            <button class="secondary-action" id="nextPreviewBtn" type="button">Next</button>
+            <button class="secondary-action strong" id="closePreviewBtn" type="button">Close</button>
+          </div>
+        </div>
+        <div class="preview-slide" id="previewSlide"></div>
+      </div>
     </div>
 
     <div class="toast" id="toast" role="status" aria-live="polite"></div>

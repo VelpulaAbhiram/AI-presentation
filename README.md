@@ -1,34 +1,30 @@
 # AI Presentation Studio
 
-A personal MVP for generating editable presentation drafts from prompts and exporting them as native PowerPoint files.
+A browser-based MVP for generating editable presentation decks with Gemini, previewing and editing slides, generating slide visuals, and exporting native PowerPoint files.
 
 ## Features
 
-- Prompt-to-deck generation
+- Gemini-powered prompt-to-deck generation
 - Editable slide titles, subtitles, bullets, notes, layouts, and themes
-- Slide thumbnails with add, duplicate, and delete controls
-- Clean responsive editor UI
-- Browser-generated `.pptx` export with editable text and shapes
-- Optional Groq-powered deck generation through a small local Node server
+- Richer presentation designs, color systems, and slide layouts
+- Gemini image generation for selected slides
+- Full-deck preview modal before export
+- Native `.pptx` export with editable text, shapes, metrics, notes, and generated images
 
-## Run
-
-### Local fallback mode
-
-Open `index.html` in a browser. This runs the local rule-based generator and does not need setup.
-
-### AI mode
+## Local Setup
 
 Create a `.env` file:
 
 ```bash
-GROQ_API_KEY=your_groq_api_key_here
-GROQ_MODEL=openai/gpt-oss-20b
+GEMINI_API_KEY=your_gemini_api_key_here
+GEMINI_MODEL=gemini-3.5-flash
+GEMINI_IMAGE_MODEL=gemini-3.1-flash-image
 ```
 
-Start the local server:
+Install and run:
 
 ```bash
+npm install
 npm start
 ```
 
@@ -38,14 +34,15 @@ Open:
 http://localhost:3000
 ```
 
-The app will use the Groq model for deck generation. If the API key is missing or the request fails, it falls back to the local generator.
-
 ## GitHub Codespaces
 
 1. Open the repo in GitHub.
 2. Go to **Settings > Secrets and variables > Codespaces**.
-3. Add a repository secret named `GROQ_API_KEY` with your Groq key.
-4. Create a new Codespace from the `master` branch.
-5. The dev container installs dependencies, forwards port `3000`, and starts the server with `npm start`.
+3. Add a repository secret named `GEMINI_API_KEY` with your Gemini key.
+4. Optionally add `GEMINI_MODEL` and `GEMINI_IMAGE_MODEL`.
+5. Create a new Codespace from the `master` branch.
+6. The dev container installs dependencies, forwards port `3000`, and starts the server with `npm start`.
 
-If you want a different Groq model, add another Codespaces secret named `GROQ_MODEL`.
+## Notes
+
+Keep `.env` private. It is ignored by Git and should not be committed.
