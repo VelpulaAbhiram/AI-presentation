@@ -11,9 +11,6 @@ loadEnvFile(path.join(root, ".env"));
 
 const geminiModel = process.env.GEMINI_MODEL || "gemini-3.5-flash";
 const geminiImageModel = process.env.GEMINI_IMAGE_MODEL || "gemini-3.1-flash-image";
-const groqModel = process.env.GROQ_MODEL || "openai/gpt-oss-20b";
-const openAiModel = process.env.OPENAI_MODEL || "gpt-4.1-mini";
-const claudeModel = process.env.CLAUDE_MODEL || "claude-sonnet-4-5";
 
 const mimeTypes = {
   ".html": "text/html; charset=utf-8",
@@ -130,10 +127,8 @@ async function handleGenerateDeck(req, res) {
       return;
     }
     parsed = JSON.parse(outputText);
-  } else if (ai.provider === "claude") {
-    parsed = await callClaudeDeck(ai, instruction, userPrompt);
   } else {
-    parsed = await callOpenAiCompatibleDeck(ai, instruction, userPrompt);
+    throw new Error("Only Gemini generation is enabled in this simplified setup");
   }
 
   const slides = normalizeGeneratedDeck(parsed, slideCount).map((slide) => ({
@@ -267,77 +262,6 @@ async function callGeminiGenerate(model, apiKey, payload) {
   }
 
   return data;
-}
-
-async function callOpenAiCompatibleDeck(ai, instruction, userPrompt) {
-  const endpoint = ai.provider === "groq"
-    ? "https://api.groq.com/openai/v1/chat/completions"
-    : "https://api.openai.com/v1/chat/completions";
-
-  const response = await fetch(endpoint, {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${ai.apiKey}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      model: ai.model,
-      messages: [
-        { role: "system", content: instruction },
-        { role: "user", content: userPrompt },
-      ],
-      temperature: 0.8,
-      response_format: { type: "json_object" },
-    }),
-  });
-
-  const data = await response.json().catch(() => ({}));
-  if (!response.ok) {
-    throw new Error(data.error?.message || `${ai.label} request failed`);
-  }
-
-  const outputText = data.choices?.[0]?.message?.content || "";
-  if (!outputText) throw new Error(`${ai.label} did not return deck JSON`);
-  return parseJsonFromModel(outputText);
-}
-
-async function callClaudeDeck(ai, instruction, userPrompt) {
-  const response = await fetch("https://api.anthropic.com/v1/messages", {
-    method: "POST",
-    headers: {
-      "x-api-key": ai.apiKey,
-      "anthropic-version": "2023-06-01",
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      model: ai.model,
-      max_tokens: 5000,
-      temperature: 0.8,
-      system: instruction,
-      messages: [{ role: "user", content: userPrompt }],
-    }),
-  });
-
-  const data = await response.json().catch(() => ({}));
-  if (!response.ok) {
-    throw new Error(data.error?.message || "Claude request failed");
-  }
-
-  const outputText = (data.content || []).map((part) => part.text || "").join("").trim();
-  if (!outputText) throw new Error("Claude did not return deck JSON");
-  return parseJsonFromModel(outputText);
-}
-
-function parseJsonFromModel(text) {
-  const raw = String(text || "").trim();
-  try {
-    return JSON.parse(raw);
-  } catch {
-    const start = raw.indexOf("{");
-    const end = raw.lastIndexOf("}");
-    if (start === -1 || end === -1 || end <= start) throw new Error("Model did not return valid JSON");
-    return JSON.parse(raw.slice(start, end + 1));
-  }
 }
 
 function addPptxSlide(pptx, deckSlide, index) {
@@ -632,62 +556,26 @@ function getTheme(name) {
 }
 
 function resolveAiSettings(settings = {}, capability = "deck") {
-  const provider = cleanText(settings.provider || process.env.AI_PROVIDER || "gemini", 20).toLowerCase();
-  const safeProvider = ["gemini", "groq", "openai", "claude"].includes(provider) ? provider : "gemini";
   const useCustomKey = cleanText(settings.keyMode || "basic", 20) === "custom";
-
-  if (safeProvider === "groq") {
-    return {
-      provider: "groq",
-      label: "Groq",
-      apiKey: useCustomKey ? cleanApiKey(settings.apiKey) : cleanApiKey(process.env.GROQ_API_KEY),
-      model: cleanText(settings.model, 80) || groqModel,
-      imageModel: geminiImageModel,
-      capability,
-    };
-  }
-
-  if (safeProvider === "openai") {
-    return {
-      provider: "openai",
-      label: "OpenAI",
-      apiKey: useCustomKey ? cleanApiKey(settings.apiKey) : cleanApiKey(process.env.OPENAI_API_KEY),
-      model: cleanText(settings.model, 80) || openAiModel,
-      imageModel: geminiImageModel,
-      capability,
-    };
-  }
-
-  if (safeProvider === "claude") {
-    return {
-      provider: "claude",
-      label: "Claude",
-      apiKey: useCustomKey ? cleanApiKey(settings.apiKey) : cleanApiKey(process.env.CLAUDE_API_KEY),
-      model: cleanText(settings.model, 80) || claudeModel,
-      imageModel: geminiImageModel,
-      capability,
-    };
-  }
 
   return {
     provider: "gemini",
     label: "Gemini",
     apiKey: useCustomKey ? cleanApiKey(settings.apiKey) : cleanApiKey(process.env.GEMINI_API_KEY),
-    model: cleanText(settings.model, 80) || geminiModel,
-    imageModel: cleanText(settings.imageModel, 80) || geminiImageModel,
+    model: geminiModel,
+    imageModel: geminiImageModel,
     capability,
   };
 }
 
 function resolveImageSettings(settings = {}) {
-  const provider = cleanText(settings.provider || "gemini", 20).toLowerCase();
-  const useCustomGemini = provider === "gemini" && cleanText(settings.keyMode || "basic", 20) === "custom";
+  const useCustomGemini = cleanText(settings.keyMode || "basic", 20) === "custom";
   return {
     provider: "gemini",
     label: "Gemini",
     apiKey: useCustomGemini ? cleanApiKey(settings.apiKey) : cleanApiKey(process.env.GEMINI_API_KEY),
     model: geminiModel,
-    imageModel: cleanText(settings.imageModel, 80) || geminiImageModel,
+    imageModel: geminiImageModel,
     capability: "image",
   };
 }

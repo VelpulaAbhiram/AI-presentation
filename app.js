@@ -15,11 +15,7 @@ let deck = [];
 let selectedIndex = 0;
 let previewIndex = 0;
 let aiSettings = {
-  provider: "gemini",
-  keyMode: "basic",
   apiKey: "",
-  model: "gemini-3.5-flash",
-  imageModel: "",
 };
 
 const $ = (id) => document.getElementById(id);
@@ -63,13 +59,13 @@ async function makeDeckFromPrompt() {
     deck = aiDeck;
     selectedIndex = 0;
     render();
-    toast(`${providerLabel()} deck generated. Preview, edit, or add visuals.`);
+    toast("Gemini deck generated. Preview, edit, or add visuals.");
   } catch (error) {
     console.warn(error);
     makeLocalDeckFromPrompt();
-    toast("Gemini unavailable. Local draft created so you can keep working.");
+    toast("Gemini unavailable. Local editable draft created.");
   } finally {
-    setButtonLoading(generateBtn, false, "Generate Editable Deck");
+    setButtonLoading(generateBtn, false, "Generate PPT");
   }
 }
 
@@ -92,7 +88,7 @@ async function generateDeckWithGemini() {
   const data = await response.json();
   if (!response.ok) throw new Error(data.error || "Gemini generation failed");
 
-  $("providerPill").textContent = `${data.provider || providerLabel()} AI`;
+  $("providerPill").textContent = "Gemini";
   return data.slides.map(normalizeSlide);
 }
 
@@ -361,55 +357,40 @@ function loadAiSettings() {
 }
 
 function renderAiSettings() {
-  $("providerInput").value = aiSettings.provider;
-  $("keyModeInput").value = aiSettings.keyMode;
   $("apiKeyInput").value = aiSettings.apiKey;
-  $("modelInput").value = aiSettings.model || defaultModelForProvider(aiSettings.provider);
-  $("imageModelInput").value = aiSettings.imageModel || "";
-  $("apiKeyInput").disabled = aiSettings.keyMode === "basic";
-  $("apiKeyInput").placeholder = aiSettings.keyMode === "basic" ? "Using server key" : "Paste your API key";
-  $("keyStatusPill").textContent = aiSettings.keyMode === "basic" ? "Basic" : aiSettings.apiKey ? "Custom" : "No key";
-  $("providerPill").textContent = providerLabel();
-  $("imageModelInput").disabled = aiSettings.provider !== "gemini";
+  $("keyStatusPill").textContent = aiSettings.apiKey ? "Saved" : "Server";
+  $("providerPill").textContent = "Gemini";
   updateGenerationModeUi();
 }
 
 function readAiSettingsForm() {
-  const provider = $("providerInput").value;
   aiSettings = {
-    provider,
-    keyMode: $("keyModeInput").value,
     apiKey: $("apiKeyInput").value.trim(),
-    model: $("modelInput").value.trim() || defaultModelForProvider(provider),
-    imageModel: $("imageModelInput").value.trim(),
   };
   renderAiSettings();
 }
 
 function requestAiSettings() {
   return {
-    ...aiSettings,
-    apiKey: aiSettings.keyMode === "custom" ? aiSettings.apiKey : "",
+    provider: "gemini",
+    keyMode: aiSettings.apiKey ? "custom" : "basic",
+    apiKey: aiSettings.apiKey,
   };
 }
 
 function saveAiSettings() {
   readAiSettingsForm();
   localStorage.setItem("aiPresentationStudio.aiSettings", JSON.stringify(aiSettings));
-  toast(`${providerLabel()} settings saved in this browser.`);
+  toast("Gemini API key saved in this browser.");
 }
 
 function clearAiSettings() {
   localStorage.removeItem("aiPresentationStudio.aiSettings");
   aiSettings = {
-    provider: "gemini",
-    keyMode: "basic",
     apiKey: "",
-    model: "gemini-3.5-flash",
-    imageModel: "",
   };
   renderAiSettings();
-  toast("AI settings cleared.");
+  toast("API key cleared.");
 }
 
 async function testAiSettings() {
@@ -431,7 +412,7 @@ async function testAiSettings() {
     });
     const data = await response.json();
     if (!response.ok) throw new Error(data.error || "Test failed");
-    toast(`${data.provider || providerLabel()} key works.`);
+    toast("Gemini key works.");
   } catch (error) {
     console.warn(error);
     toast(error.message || "AI settings test failed.");
@@ -440,23 +421,9 @@ async function testAiSettings() {
   }
 }
 
-function defaultModelForProvider(provider) {
-  if (provider === "groq") return "openai/gpt-oss-20b";
-  if (provider === "openai") return "gpt-4.1-mini";
-  if (provider === "claude") return "claude-sonnet-4-5";
-  return "gemini-3.5-flash";
-}
-
-function providerLabel() {
-  if (aiSettings.provider === "groq") return "Groq";
-  if (aiSettings.provider === "openai") return "OpenAI";
-  if (aiSettings.provider === "claude") return "Claude";
-  return "Gemini";
-}
-
 function updateGenerationModeUi() {
   const localMode = $("generationModeInput").value === "local";
-  $("providerPill").textContent = localMode ? "No AI" : providerLabel();
+  $("providerPill").textContent = localMode ? "No AI" : "Gemini";
   $("includeImagesInput").disabled = localMode;
 }
 
@@ -803,12 +770,6 @@ $("clearImageBtn").addEventListener("click", clearSlideImage);
 $("saveAiSettingsBtn").addEventListener("click", saveAiSettings);
 $("testAiSettingsBtn").addEventListener("click", testAiSettings);
 $("clearAiSettingsBtn").addEventListener("click", clearAiSettings);
-$("providerInput").addEventListener("change", () => {
-  const provider = $("providerInput").value;
-  $("modelInput").value = defaultModelForProvider(provider);
-  readAiSettingsForm();
-});
-$("keyModeInput").addEventListener("change", readAiSettingsForm);
 $("generationModeInput").addEventListener("change", updateGenerationModeUi);
 
 ["kickerInput", "titleInput", "subtitleInput", "bulletsInput", "notesInput", "layoutInput", "themeInput", "visualPromptInput"].forEach((id) => {

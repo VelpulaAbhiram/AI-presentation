@@ -55,58 +55,45 @@
           <label>
             Generation mode
             <select id="generationModeInput">
+              <option value="ai">Use Gemini API key</option>
               <option value="local">Without AI - editable template</option>
-              <option value="ai">Use AI provider</option>
             </select>
           </label>
           <label class="toggle-row">
             <input id="includeImagesInput" type="checkbox" checked />
             <span>Ask Gemini for slide visual prompts</span>
           </label>
-          <button class="primary-action" id="generateBtn" type="button">Generate Editable Deck</button>
+          <button class="primary-action" id="generateBtn" type="button">Generate PPT</button>
         </section>
 
         <section class="panel ai-settings-panel">
           <div class="panel-title">
-            <h2>AI Settings</h2>
+            <h2>API Key</h2>
             <span class="status-pill" id="keyStatusPill">Local</span>
           </div>
           <label>
-            Provider
-            <select id="providerInput">
-              <option value="gemini">Google Gemini</option>
-              <option value="groq">Groq</option>
-              <option value="openai">OpenAI</option>
-              <option value="claude">Claude</option>
-            </select>
+            Gemini API key
+            <input id="apiKeyInput" type="password" placeholder="Paste your Gemini API key" autocomplete="off" />
           </label>
-          <label>
-            Key mode
-            <select id="keyModeInput">
-              <option value="basic">Use basic website key</option>
-              <option value="custom">Use my custom API key</option>
-            </select>
-          </label>
-          <label>
-            API key
-            <input id="apiKeyInput" type="password" placeholder="Paste your API key" autocomplete="off" />
-          </label>
-          <div class="field-grid">
-            <label>
-              Deck model
-              <input id="modelInput" type="text" placeholder="gemini-3.5-flash" />
-            </label>
-            <label>
-              Image model
-              <input id="imageModelInput" type="text" placeholder="Optional Gemini image model" />
-            </label>
-          </div>
           <div class="settings-actions">
-            <button class="secondary-action strong" id="saveAiSettingsBtn" type="button">Save Settings</button>
+            <button class="secondary-action strong" id="saveAiSettingsBtn" type="button">Save Key</button>
             <button class="secondary-action" id="testAiSettingsBtn" type="button">Test</button>
             <button class="secondary-action" id="clearAiSettingsBtn" type="button">Clear</button>
           </div>
-          <p class="hint">Basic key uses the server env key. Custom keys stay in this browser. Image generation currently uses Gemini.</p>
+          <p class="hint">The key is saved only in this browser. If blank, the app tries the server's local `.env` Gemini key.</p>
+        </section>
+
+        <section class="panel help-panel">
+          <div class="panel-title">
+            <h2>Help Me</h2>
+          </div>
+          <ol class="help-list">
+            <li>Paste your Gemini API key and save it.</li>
+            <li>Write a prompt and click Generate PPT.</li>
+            <li>Edit slides from the right panel.</li>
+            <li>Open Preview, then download PowerPoint.</li>
+          </ol>
+          <p class="hint">No key? Choose Without AI to create an editable template deck.</p>
         </section>
 
         <section class="panel">

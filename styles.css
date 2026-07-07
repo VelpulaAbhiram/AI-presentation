@@ -228,6 +228,18 @@ input:disabled {
   margin-top: 0;
 }
 
+.help-list {
+  margin: 0 0 10px;
+  padding-left: 20px;
+  color: var(--ink);
+  font-size: 13px;
+  line-height: 1.55;
+}
+
+.help-list li + li {
+  margin-top: 6px;
+}
+
 .workspace {
   min-width: 0;
   padding: 20px;

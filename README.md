@@ -1,43 +1,43 @@
 # AI Presentation Studio
 
-A browser-based MVP for generating editable presentation decks with Gemini, previewing and editing slides, generating slide visuals, and exporting native PowerPoint files.
+AI Presentation Studio is a browser-based presentation builder for creating editable PowerPoint decks from a prompt. It can use a Gemini API key for AI generation, or it can create an editable template deck without AI.
 
-## Features
+## What It Does
 
-- AI-powered prompt-to-deck generation with Gemini, Claude, Groq, or OpenAI
-- Editable slide titles, subtitles, bullets, notes, layouts, and themes
-- Richer presentation designs, color systems, and slide layouts
-- Gemini image generation for selected slides
-- Bring-your-own-key settings with basic website key or custom user key modes
-- Full-deck preview modal before export
-- Native `.pptx` export with editable text, shapes, metrics, notes, and generated images
-- No-AI editable template mode for working without any API key
-- Save/load editable project JSON backups
-- Browser-side PowerPoint export fallback for static/original website usage
+- Generate a deck from a prompt with Gemini
+- Create a deck without AI when no key is available
+- Edit slide title, subtitle, kicker, bullets, notes, layout, theme, and visual prompt
+- Preview the deck before export
+- Generate optional slide images with Gemini
+- Download a native editable `.pptx` PowerPoint file
+- Save and load editable project JSON files separately
+
+## Main User Flow
+
+1. Paste a Gemini API key in **API Key** and click **Save Key**.
+2. Write a prompt in **Generate**.
+3. Click **Generate PPT**.
+4. Edit slides in the right-side editor.
+5. Use **Open Preview** to review the deck.
+6. Click **Download PowerPoint** to export `.pptx`.
+
+No API key? Choose **Without AI - editable template** in Generation mode. The site will still build a full editable deck locally.
+
+## API Key
+
+The app has one simple API key field.
+
+- A pasted key is saved only in the current browser with local storage.
+- If the browser key is blank, the server tries `GEMINI_API_KEY` from `.env` or hosting secrets.
+- Model selection is intentionally hidden to keep the website simple for users.
+
+Create a local `.env` file:
+
+```bash
+GEMINI_API_KEY=your_gemini_api_key_here
+```
 
 ## Local Setup
-
-Create a `.env` file. These values power the website's **basic key** mode:
-
-```bash
-AI_PROVIDER=gemini
-GEMINI_API_KEY=your_gemini_api_key_here
-GEMINI_MODEL=gemini-3.5-flash
-GEMINI_IMAGE_MODEL=gemini-3.1-flash-image
-```
-
-Optional provider keys:
-
-```bash
-CLAUDE_API_KEY=your_claude_api_key_here
-CLAUDE_MODEL=claude-sonnet-4-5
-GROQ_API_KEY=your_groq_api_key_here
-GROQ_MODEL=openai/gpt-oss-20b
-OPENAI_API_KEY=your_openai_api_key_here
-OPENAI_MODEL=gpt-4.1-mini
-```
-
-Install and run:
 
 ```bash
 npm install
@@ -50,19 +50,37 @@ Open:
 http://localhost:3000
 ```
 
-Use **Generation mode > Without AI** to create and edit decks without any API key. Use **Use AI provider** when you want Gemini, Claude, Groq, or OpenAI to write the deck.
+## PowerPoint Export
 
-The app first tries the server PowerPoint export. If the server is unavailable, it falls back to browser-side export using the bundled `pptxgenjs` script.
+The **Download PowerPoint** button exports `.pptx` files. The app first uses the Node server endpoint `/api/export-pptx`. If that is unavailable, it tries the bundled browser PowerPoint exporter.
+
+JSON is only downloaded through **Save Editable Project**. That file is for reopening and editing the project later, not for PowerPoint.
 
 ## GitHub Codespaces
 
-1. Open the repo in GitHub.
+1. Open the repository in GitHub.
 2. Go to **Settings > Secrets and variables > Codespaces**.
-3. Add repository secrets for whichever basic provider you want, for example `AI_PROVIDER=gemini` and `GEMINI_API_KEY`.
-4. Optionally add `GEMINI_MODEL`, `GEMINI_IMAGE_MODEL`, `CLAUDE_API_KEY`, `GROQ_API_KEY`, or `OPENAI_API_KEY`.
-5. Create a new Codespace from the `master` branch.
-6. The dev container installs dependencies, forwards port `3000`, and starts the server with `npm start`.
+3. Add `GEMINI_API_KEY` as a Codespaces secret if you want the website to work without users pasting a key.
+4. Create or reopen the Codespace.
+5. Run:
+
+```bash
+git pull
+npm install
+npm start
+```
+
+## Project Files
+
+- `index.html`: app shell, API key panel, Help Me panel, editor layout
+- `styles.css`: responsive app styling and slide designs
+- `app.js`: browser editor, preview, Gemini settings, and client export fallback
+- `server.js`: static server, Gemini endpoints, image endpoint, and PPTX export
+- `vendor/pptxgen.bundle.js`: browser PPTX export fallback
+- `.devcontainer/devcontainer.json`: Codespaces setup
 
 ## Notes
 
-Keep `.env` private. It is ignored by Git and should not be committed.
+- Keep `.env` private. It is ignored by Git.
+- The app works without AI through local editable templates.
+- For a public hosted website, set `GEMINI_API_KEY` in the host environment if you want a shared basic key.
