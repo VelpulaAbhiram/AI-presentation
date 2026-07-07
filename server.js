@@ -9,8 +9,7 @@ const port = Number(process.env.PORT || 3000);
 
 loadEnvFile(path.join(root, ".env"));
 
-const geminiModel = process.env.GEMINI_MODEL || "gemini-3.5-flash";
-const geminiImageModel = process.env.GEMINI_IMAGE_MODEL || "gemini-3.1-flash-image";
+const claudeModel = process.env.CLAUDE_MODEL || "claude-sonnet-4-6";
 
 const mimeTypes = {
   ".html": "text/html; charset=utf-8",
@@ -22,38 +21,6 @@ const mimeTypes = {
 
 const layoutOptions = ["cover", "split", "bullets", "metrics", "comparison", "timeline", "quote", "image"];
 const themeOptions = ["aurora", "graphite", "prism", "meadow", "ember", "ocean", "royal", "sunset"];
-
-const deckSchema = {
-  type: "object",
-  properties: {
-    slides: {
-      type: "array",
-      items: {
-        type: "object",
-        properties: {
-          title: { type: "string" },
-          subtitle: { type: "string" },
-          kicker: { type: "string" },
-          layout: { type: "string", enum: layoutOptions },
-          theme: { type: "string", enum: themeOptions },
-          bullets: { type: "array", items: { type: "string" } },
-          metrics: {
-            type: "array",
-            items: {
-              type: "object",
-              properties: {
-                value: { type: "string" },
-                label: { type: "string" },
-              },
-            },
-          },
-          visualPrompt: { type: "string" },
-          notes: { type: "string" },
-        },
-      },
-    },
-  },
-};
 
 const server = http.createServer(async (req, res) => {
   try {
@@ -110,26 +77,7 @@ async function handleGenerateDeck(req, res) {
   const { instruction, userPrompt } = buildDeckPrompt({ prompt, style, designPack, slideCount, includeImages });
   let parsed;
 
-  if (ai.provider === "gemini") {
-    const data = await callGeminiGenerate(ai.model, ai.apiKey, {
-      systemInstruction: { parts: [{ text: instruction }] },
-      contents: [{ role: "user", parts: [{ text: userPrompt }] }],
-      generationConfig: {
-        temperature: 0.85,
-        responseMimeType: "application/json",
-        responseSchema: deckSchema,
-      },
-    });
-
-    const outputText = extractGeminiText(data);
-    if (!outputText) {
-      sendJson(res, 502, { error: "Gemini did not return deck JSON" });
-      return;
-    }
-    parsed = JSON.parse(outputText);
-  } else {
-    throw new Error("Only Gemini generation is enabled in this simplified setup");
-  }
+  parsed = await callClaudeDeck(ai, instruction, userPrompt);
 
   const slides = normalizeGeneratedDeck(parsed, slideCount).map((slide) => ({
     ...slide,
@@ -160,56 +108,15 @@ async function handleGenerateImage(req, res) {
   const body = await readJson(req);
   const prompt = cleanText(body.prompt, 1600);
   const theme = getTheme(body.theme);
-  const ai = resolveImageSettings(body.aiSettings);
 
   if (!prompt) {
     sendJson(res, 400, { error: "Image prompt is required" });
     return;
   }
 
-  if (!ai.apiKey) {
-    sendJson(res, 400, { error: "Image generation requires a Gemini API key" });
-    return;
-  }
-
-  const data = await fetch("https://generativelanguage.googleapis.com/v1beta/interactions", {
-    method: "POST",
-    headers: {
-      "x-goog-api-key": ai.apiKey,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      model: ai.imageModel,
-      input: [
-        {
-          type: "text",
-          text: `${prompt}\n\nCreate a clean 16:9 presentation visual. Use the color mood ${theme.name}: ${theme.accent}, ${theme.accent2}, ${theme.bg}. Avoid tiny unreadable text.`,
-        },
-      ],
-      response_format: {
-        type: "image",
-        mime_type: "image/png",
-        aspect_ratio: "16:9",
-        image_size: "1K",
-      },
-    }),
-  });
-
-  const result = await data.json().catch(() => ({}));
-  if (!data.ok) {
-    sendJson(res, data.status, { error: result.error?.message || "Gemini image generation failed" });
-    return;
-  }
-
-  const image = result.output_image || findInteractionImage(result);
-  if (!image?.data) {
-    sendJson(res, 502, { error: "Gemini did not return an image" });
-    return;
-  }
-
   sendJson(res, 200, {
-    mimeType: image.mime_type || "image/png",
-    dataUrl: `data:${image.mime_type || "image/png"};base64,${image.data}`,
+    mimeType: "image/svg+xml",
+    dataUrl: makeLocalVisualDataUrl(prompt, theme),
   });
 }
 
@@ -246,22 +153,42 @@ async function handleExportPptx(req, res) {
   res.end(buffer);
 }
 
-async function callGeminiGenerate(model, apiKey, payload) {
-  const response = await fetch(
-    `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(apiKey)}`,
-    {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
+async function callClaudeDeck(ai, instruction, userPrompt) {
+  const response = await fetch("https://api.anthropic.com/v1/messages", {
+    method: "POST",
+    headers: {
+      "x-api-key": ai.apiKey,
+      "anthropic-version": "2023-06-01",
+      "Content-Type": "application/json",
     },
-  );
+    body: JSON.stringify({
+      model: ai.model,
+      max_tokens: 5000,
+      system: instruction,
+      messages: [{ role: "user", content: userPrompt }],
+    }),
+  });
 
   const data = await response.json().catch(() => ({}));
   if (!response.ok) {
-    throw new Error(data.error?.message || "Gemini request failed");
+    throw new Error(data.error?.message || "Claude request failed");
   }
 
-  return data;
+  const outputText = (data.content || []).map((part) => part.text || "").join("").trim();
+  if (!outputText) throw new Error("Claude did not return deck JSON");
+  return parseJsonFromModel(outputText);
+}
+
+function parseJsonFromModel(text) {
+  const raw = String(text || "").trim();
+  try {
+    return JSON.parse(raw);
+  } catch {
+    const start = raw.indexOf("{");
+    const end = raw.lastIndexOf("}");
+    if (start === -1 || end === -1 || end <= start) throw new Error("Claude did not return valid JSON");
+    return JSON.parse(raw.slice(start, end + 1));
+  }
 }
 
 function addPptxSlide(pptx, deckSlide, index) {
@@ -486,22 +413,6 @@ function addQuote(slide, deckSlide, theme) {
   });
 }
 
-function extractGeminiText(data) {
-  return (data.candidates?.[0]?.content?.parts || [])
-    .map((part) => part.text || "")
-    .join("")
-    .trim();
-}
-
-function findInteractionImage(result) {
-  const steps = result.steps || result.output || [];
-  for (const step of steps) {
-    const image = step.output_image || step.image || step.inline_data;
-    if (image?.data) return image;
-  }
-  return null;
-}
-
 function normalizeGeneratedDeck(generated, slideCount) {
   const slides = Array.isArray(generated.slides) ? generated.slides : [];
   return slides.slice(0, slideCount).map((slide, index) => {
@@ -520,7 +431,7 @@ function normalizeGeneratedDeck(generated, slideCount) {
     return {
       id: cleanText(slide.id, 80) || randomUUID(),
       title: cleanText(slide.title, 88) || `Slide ${index + 1}`,
-      subtitle: cleanText(slide.subtitle, 170) || "Generated with Gemini.",
+      subtitle: cleanText(slide.subtitle, 170) || "Generated with Claude.",
       kicker: cleanText(slide.kicker, 42) || "AI GENERATED",
       layout,
       theme,
@@ -555,28 +466,41 @@ function getTheme(name) {
   return themes[name] || themes.aurora;
 }
 
+function makeLocalVisualDataUrl(prompt, theme) {
+  const words = cleanText(prompt, 180)
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 9);
+  const title = words.slice(0, 5).join(" ") || "Presentation visual";
+  const caption = words.slice(5).join(" ") || "Editable slide asset";
+  const svg = `
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="900" viewBox="0 0 1600 900">
+  <rect width="1600" height="900" fill="#${theme.bg}"/>
+  <rect x="96" y="92" width="1408" height="716" rx="42" fill="#${theme.surface}" stroke="#${theme.line}" stroke-width="4"/>
+  <circle cx="1232" cy="170" r="220" fill="#${theme.accent2}" opacity="0.24"/>
+  <circle cx="1370" cy="660" r="170" fill="#${theme.accent}" opacity="0.18"/>
+  <path d="M152 676 C 340 520, 510 710, 710 548 S 1075 382, 1446 514" fill="none" stroke="#${theme.accent}" stroke-width="18" stroke-linecap="round" opacity="0.82"/>
+  <rect x="174" y="168" width="116" height="16" rx="8" fill="#${theme.accent}"/>
+  <text x="174" y="354" fill="#${theme.ink}" font-family="Aptos, Arial, sans-serif" font-size="78" font-weight="800">${escapeXml(title)}</text>
+  <text x="178" y="426" fill="#${theme.muted}" font-family="Aptos, Arial, sans-serif" font-size="34" font-weight="500">${escapeXml(caption)}</text>
+  <g transform="translate(184 560)">
+    <rect width="240" height="96" rx="24" fill="#${theme.accent}" opacity="0.95"/>
+    <rect x="280" width="240" height="96" rx="24" fill="#${theme.accent2}" opacity="0.88"/>
+    <rect x="560" width="240" height="96" rx="24" fill="#${theme.ink}" opacity="0.12"/>
+  </g>
+</svg>`.trim();
+  return `data:image/svg+xml;base64,${Buffer.from(svg, "utf8").toString("base64")}`;
+}
+
 function resolveAiSettings(settings = {}, capability = "deck") {
   const useCustomKey = cleanText(settings.keyMode || "basic", 20) === "custom";
 
   return {
-    provider: "gemini",
-    label: "Gemini",
-    apiKey: useCustomKey ? cleanApiKey(settings.apiKey) : cleanApiKey(process.env.GEMINI_API_KEY),
-    model: geminiModel,
-    imageModel: geminiImageModel,
+    provider: "claude",
+    label: "Claude",
+    apiKey: useCustomKey ? cleanApiKey(settings.apiKey) : cleanApiKey(process.env.CLAUDE_API_KEY),
+    model: claudeModel,
     capability,
-  };
-}
-
-function resolveImageSettings(settings = {}) {
-  const useCustomGemini = cleanText(settings.keyMode || "basic", 20) === "custom";
-  return {
-    provider: "gemini",
-    label: "Gemini",
-    apiKey: useCustomGemini ? cleanApiKey(settings.apiKey) : cleanApiKey(process.env.GEMINI_API_KEY),
-    model: geminiModel,
-    imageModel: geminiImageModel,
-    capability: "image",
   };
 }
 
@@ -588,7 +512,15 @@ function cleanApiKey(value) {
 
 function isUsableImageDataUrl(value) {
   const text = String(value || "");
-  return /^data:image\/(png|jpeg|jpg|webp);base64,[a-z0-9+/=]+$/i.test(text) && text.length < 9_000_000;
+  return /^data:image\/(png|jpeg|jpg|webp|svg\+xml);base64,[a-z0-9+/=]+$/i.test(text) && text.length < 9_000_000;
+}
+
+function escapeXml(value) {
+  return String(value || "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
 }
 
 function serveStatic(req, res) {

@@ -13,14 +13,14 @@
           <div class="brand-mark">AI</div>
           <div>
             <strong>AI Presentation Studio</strong>
-            <span>Gemini-powered deck builder</span>
+            <span>Claude-powered deck builder</span>
           </div>
         </div>
 
         <section class="panel setup-panel">
           <div class="panel-title">
             <h2>Generate</h2>
-            <span class="status-pill" id="providerPill">Gemini</span>
+            <span class="status-pill" id="providerPill">Claude</span>
           </div>
           <label>
             Presentation prompt
@@ -55,13 +55,13 @@
           <label>
             Generation mode
             <select id="generationModeInput">
-              <option value="ai">Use Gemini API key</option>
+              <option value="ai">Use Claude API key</option>
               <option value="local">Without AI - editable template</option>
             </select>
           </label>
           <label class="toggle-row">
             <input id="includeImagesInput" type="checkbox" checked />
-            <span>Ask Gemini for slide visual prompts</span>
+            <span>Ask Claude for slide visual prompts</span>
           </label>
           <button class="primary-action" id="generateBtn" type="button">Generate PPT</button>
         </section>
@@ -72,15 +72,15 @@
             <span class="status-pill" id="keyStatusPill">Local</span>
           </div>
           <label>
-            Gemini API key
-            <input id="apiKeyInput" type="password" placeholder="Paste your Gemini API key" autocomplete="off" />
+            Claude API key
+            <input id="apiKeyInput" type="password" placeholder="Paste your Claude API key" autocomplete="off" />
           </label>
           <div class="settings-actions">
             <button class="secondary-action strong" id="saveAiSettingsBtn" type="button">Save Key</button>
             <button class="secondary-action" id="testAiSettingsBtn" type="button">Test</button>
             <button class="secondary-action" id="clearAiSettingsBtn" type="button">Clear</button>
           </div>
-          <p class="hint">The key is saved only in this browser. If blank, the app tries the server's local `.env` Gemini key.</p>
+          <p class="hint">The key is saved only in this browser. If blank, the app tries the server's local `.env` Claude key.</p>
         </section>
 
         <section class="panel help-panel">
@@ -88,7 +88,7 @@
             <h2>Help Me</h2>
           </div>
           <ol class="help-list">
-            <li>Paste your Gemini API key and save it.</li>
+            <li>Paste your Claude API key and save it.</li>
             <li>Write a prompt and click Generate PPT.</li>
             <li>Edit slides from the right panel.</li>
             <li>Open Preview, then download PowerPoint.</li>
@@ -115,7 +115,7 @@
         <header class="topbar">
           <div>
             <p class="eyebrow">Website MVP</p>
-            <h1>Design sharper presentations with Gemini</h1>
+            <h1>Design sharper presentations with Claude</h1>
           </div>
           <div class="toolbar">
             <button class="icon-button" id="addSlideBtn" type="button" title="Add slide">+</button>
@@ -200,13 +200,13 @@
 
             <div class="panel">
               <div class="panel-title">
-                <h2>AI Visual</h2>
+                <h2>Slide Visual</h2>
               </div>
               <label>
                 Image prompt
                 <textarea id="visualPromptInput" rows="4"></textarea>
               </label>
-              <button class="secondary-action strong" id="generateImageBtn" type="button">Generate Slide Image</button>
+              <button class="secondary-action strong" id="generateImageBtn" type="button">Create Slide Visual</button>
               <button class="secondary-action" id="clearImageBtn" type="button">Clear Image</button>
             </div>
           </aside>

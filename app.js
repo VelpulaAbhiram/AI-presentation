@@ -55,21 +55,21 @@ async function makeDeckFromPrompt() {
       return;
     }
 
-    const aiDeck = await generateDeckWithGemini();
+    const aiDeck = await generateDeckWithClaude();
     deck = aiDeck;
     selectedIndex = 0;
     render();
-    toast("Gemini deck generated. Preview, edit, or add visuals.");
+    toast("Claude deck generated. Preview, edit, or add visuals.");
   } catch (error) {
     console.warn(error);
     makeLocalDeckFromPrompt();
-    toast("Gemini unavailable. Local editable draft created.");
+    toast("Claude unavailable. Local editable draft created.");
   } finally {
     setButtonLoading(generateBtn, false, "Generate PPT");
   }
 }
 
-async function generateDeckWithGemini() {
+async function generateDeckWithClaude() {
   if (location.protocol === "file:") throw new Error("Run the server to use AI.");
 
   const response = await fetch("/api/generate-deck", {
@@ -86,9 +86,9 @@ async function generateDeckWithGemini() {
   });
 
   const data = await response.json();
-  if (!response.ok) throw new Error(data.error || "Gemini generation failed");
+  if (!response.ok) throw new Error(data.error || "Claude generation failed");
 
-  $("providerPill").textContent = "Gemini";
+  $("providerPill").textContent = "Claude";
   return data.slides.map(normalizeSlide);
 }
 
@@ -206,7 +206,7 @@ function renderStage() {
 
 function slideMarkup(slide, theme) {
   const bullets = slide.bullets.map((item) => `<li>${escapeHtml(item)}</li>`).join("");
-  const image = slide.imageDataUrl ? `<img class="slide-image" src="${slide.imageDataUrl}" alt="" />` : `<div class="visual-placeholder"><strong>AI Visual</strong><span>${escapeHtml(slide.visualPrompt)}</span></div>`;
+  const image = slide.imageDataUrl ? `<img class="slide-image" src="${slide.imageDataUrl}" alt="" />` : `<div class="visual-placeholder"><strong>Slide Visual</strong><span>${escapeHtml(slide.visualPrompt)}</span></div>`;
   const metrics = slide.metrics
     .slice(0, 3)
     .map((item) => `<div class="metric"><strong>${escapeHtml(item.value)}</strong><span>${escapeHtml(item.label)}</span></div>`)
@@ -322,7 +322,7 @@ function syncInspector() {
 async function generateImageForSlide() {
   const button = $("generateImageBtn");
   const slide = deck[selectedIndex];
-  setButtonLoading(button, true, "Generating...");
+  setButtonLoading(button, true, "Creating...");
 
   try {
     const response = await fetch("/api/generate-image", {
@@ -335,12 +335,12 @@ async function generateImageForSlide() {
     slide.imageDataUrl = data.dataUrl;
     if (!["cover", "split", "image"].includes(slide.layout)) slide.layout = "image";
     render();
-    toast("Gemini image added to the selected slide.");
+    toast("Slide visual added to the selected slide.");
   } catch (error) {
     console.warn(error);
-    toast("Image generation failed. Check your Gemini key/model access.");
+    toast("Visual creation failed. Try a shorter prompt.");
   } finally {
-    setButtonLoading(button, false, "Generate Slide Image");
+    setButtonLoading(button, false, "Create Slide Visual");
   }
 }
 
@@ -359,7 +359,7 @@ function loadAiSettings() {
 function renderAiSettings() {
   $("apiKeyInput").value = aiSettings.apiKey;
   $("keyStatusPill").textContent = aiSettings.apiKey ? "Saved" : "Server";
-  $("providerPill").textContent = "Gemini";
+  $("providerPill").textContent = "Claude";
   updateGenerationModeUi();
 }
 
@@ -372,7 +372,7 @@ function readAiSettingsForm() {
 
 function requestAiSettings() {
   return {
-    provider: "gemini",
+    provider: "claude",
     keyMode: aiSettings.apiKey ? "custom" : "basic",
     apiKey: aiSettings.apiKey,
   };
@@ -381,7 +381,7 @@ function requestAiSettings() {
 function saveAiSettings() {
   readAiSettingsForm();
   localStorage.setItem("aiPresentationStudio.aiSettings", JSON.stringify(aiSettings));
-  toast("Gemini API key saved in this browser.");
+  toast("Claude API key saved in this browser.");
 }
 
 function clearAiSettings() {
@@ -412,7 +412,7 @@ async function testAiSettings() {
     });
     const data = await response.json();
     if (!response.ok) throw new Error(data.error || "Test failed");
-    toast("Gemini key works.");
+    toast("Claude key works.");
   } catch (error) {
     console.warn(error);
     toast(error.message || "AI settings test failed.");
@@ -423,7 +423,7 @@ async function testAiSettings() {
 
 function updateGenerationModeUi() {
   const localMode = $("generationModeInput").value === "local";
-  $("providerPill").textContent = localMode ? "No AI" : "Gemini";
+  $("providerPill").textContent = localMode ? "No AI" : "Claude";
   $("includeImagesInput").disabled = localMode;
 }
 
@@ -674,7 +674,7 @@ function addBrowserTimeline(slide, deckSlide, theme) {
 }
 
 function isBrowserImageUsable(value) {
-  return /^data:image\/(png|jpeg|jpg|webp);base64,[a-z0-9+/=]+$/i.test(String(value || "")) && String(value || "").length < 9_000_000;
+  return /^data:image\/(png|jpeg|jpg|webp|svg\+xml);base64,[a-z0-9+/=]+$/i.test(String(value || "")) && String(value || "").length < 9_000_000;
 }
 
 function saveBlob(blob, filename) {
