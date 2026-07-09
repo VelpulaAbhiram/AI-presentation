@@ -1,0 +1,10 @@
+{
+  "functions": {
+    "api/generate-deck.js": {
+      "maxDuration": 60
+    },
+    "api/export-pptx.js": {
+      "maxDuration": 60
+    }
+  }
+}

@@ -70,12 +70,55 @@ npm install
 npm start
 ```
 
+## Vercel Deployment
+
+This repo is ready for Vercel:
+
+- Static website files are served from the project root.
+- API routes live in `api/`.
+- `server.js` still works locally with `npm start`.
+
+Deploy steps:
+
+1. Import `VelpulaAbhiram/AI-presentation` into Vercel.
+2. Set the framework preset to **Other** if Vercel asks.
+3. Keep the build command empty or use Vercel's default install step.
+4. Add environment variable:
+
+```bash
+CLAUDE_API_KEY=your_claude_api_key_here
+```
+
+5. Deploy.
+
+The app will use the Vercel environment key when users do not paste their own Claude key.
+
+## Supabase Plan
+
+Supabase is the right place for the next product layer:
+
+- User login
+- Saved presentation projects
+- Recent decks and version history
+- Team/shared workspaces
+
+Add these later when the Supabase project is created:
+
+```bash
+SUPABASE_URL=your_supabase_project_url
+SUPABASE_ANON_KEY=your_supabase_anon_key
+```
+
+For now, the app still saves editable projects locally as JSON, so deployment is not blocked by Supabase setup.
+
 ## Project Files
 
 - `index.html`: app shell, API key panel, Help Me panel, editor layout
 - `styles.css`: responsive app styling and slide designs
 - `app.js`: browser editor, preview, Claude settings, and client export fallback
 - `server.js`: static server, Claude deck endpoint, visual endpoint, and PPTX export
+- `api/`: Vercel serverless API endpoints
+- `vercel.json`: Vercel function settings
 - `vendor/pptxgen.bundle.js`: browser PPTX export fallback
 - `.devcontainer/devcontainer.json`: Codespaces setup
 

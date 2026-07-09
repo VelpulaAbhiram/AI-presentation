@@ -22,7 +22,7 @@ const mimeTypes = {
 const layoutOptions = ["cover", "split", "bullets", "metrics", "comparison", "timeline", "quote", "image"];
 const themeOptions = ["aurora", "graphite", "prism", "meadow", "ember", "ocean", "royal", "sunset"];
 
-const server = http.createServer(async (req, res) => {
+async function appHandler(req, res) {
   try {
     if (req.method === "POST" && req.url === "/api/generate-deck") {
       await handleGenerateDeck(req, res);
@@ -49,11 +49,15 @@ const server = http.createServer(async (req, res) => {
     console.error(error);
     sendJson(res, 500, { error: error.message || "Unexpected server error" });
   }
-});
+}
 
-server.listen(port, () => {
-  console.log(`AI Presentation Studio running at http://localhost:${port}`);
-});
+const server = http.createServer(appHandler);
+
+if (require.main === module) {
+  server.listen(port, () => {
+    console.log(`AI Presentation Studio running at http://localhost:${port}`);
+  });
+}
 
 async function handleGenerateDeck(req, res) {
   const body = await readJson(req);
@@ -597,3 +601,11 @@ function loadEnvFile(filePath) {
     if (key && process.env[key] == null) process.env[key] = value;
   }
 }
+
+module.exports = {
+  appHandler,
+  handleGenerateDeck,
+  handleGenerateImage,
+  handleExportPptx,
+  sendJson,
+};
