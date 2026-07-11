@@ -75,6 +75,15 @@
             Claude API key
             <input id="apiKeyInput" type="password" placeholder="Paste your Claude API key" autocomplete="off" />
           </label>
+          <label>
+            Claude model
+            <select id="modelInput">
+              <option value="claude-sonnet-5">Claude Sonnet 5 - balanced</option>
+              <option value="claude-fable-5">Claude Fable 5 - highest quality</option>
+              <option value="claude-opus-4-8">Claude Opus 4.8 - enterprise depth</option>
+              <option value="claude-haiku-4-5">Claude Haiku 4.5 - fastest</option>
+            </select>
+          </label>
           <div class="settings-actions">
             <button class="secondary-action strong" id="saveAiSettingsBtn" type="button">Save Key</button>
             <button class="secondary-action" id="testAiSettingsBtn" type="button">Test</button>
@@ -118,6 +127,8 @@
             <h1>Design sharper presentations with Claude</h1>
           </div>
           <div class="toolbar">
+            <button class="icon-button" id="moveSlideUpBtn" type="button" title="Move selected slide earlier">Up</button>
+            <button class="icon-button" id="moveSlideDownBtn" type="button" title="Move selected slide later">Down</button>
             <button class="icon-button" id="addSlideBtn" type="button" title="Add slide">+</button>
             <button class="icon-button" id="duplicateSlideBtn" type="button" title="Duplicate selected slide">Copy</button>
             <button class="icon-button danger" id="deleteSlideBtn" type="button" title="Delete selected slide">Del</button>

@@ -10,12 +10,19 @@ const themes = {
 };
 
 const layouts = ["cover", "split", "bullets", "metrics", "comparison", "timeline", "quote", "image"];
+const claudeModels = {
+  "claude-sonnet-5": "Sonnet 5",
+  "claude-fable-5": "Fable 5",
+  "claude-opus-4-8": "Opus 4.8",
+  "claude-haiku-4-5": "Haiku 4.5",
+};
 
 let deck = [];
 let selectedIndex = 0;
 let previewIndex = 0;
 let aiSettings = {
   apiKey: "",
+  model: "claude-sonnet-5",
 };
 
 const $ = (id) => document.getElementById(id);
@@ -88,7 +95,7 @@ async function generateDeckWithClaude() {
   const data = await response.json();
   if (!response.ok) throw new Error(data.error || "Claude generation failed");
 
-  $("providerPill").textContent = "Claude";
+  $("providerPill").textContent = modelLabel(aiSettings.model);
   return data.slides.map(normalizeSlide);
 }
 
@@ -358,14 +365,16 @@ function loadAiSettings() {
 
 function renderAiSettings() {
   $("apiKeyInput").value = aiSettings.apiKey;
+  $("modelInput").value = safeClaudeModel(aiSettings.model);
   $("keyStatusPill").textContent = aiSettings.apiKey ? "Saved" : "Server";
-  $("providerPill").textContent = "Claude";
+  $("providerPill").textContent = modelLabel(aiSettings.model);
   updateGenerationModeUi();
 }
 
 function readAiSettingsForm() {
   aiSettings = {
     apiKey: $("apiKeyInput").value.trim(),
+    model: safeClaudeModel($("modelInput").value),
   };
   renderAiSettings();
 }
@@ -375,6 +384,7 @@ function requestAiSettings() {
     provider: "claude",
     keyMode: aiSettings.apiKey ? "custom" : "basic",
     apiKey: aiSettings.apiKey,
+    model: safeClaudeModel(aiSettings.model),
   };
 }
 
@@ -388,6 +398,7 @@ function clearAiSettings() {
   localStorage.removeItem("aiPresentationStudio.aiSettings");
   aiSettings = {
     apiKey: "",
+    model: "claude-sonnet-5",
   };
   renderAiSettings();
   toast("API key cleared.");
@@ -423,8 +434,16 @@ async function testAiSettings() {
 
 function updateGenerationModeUi() {
   const localMode = $("generationModeInput").value === "local";
-  $("providerPill").textContent = localMode ? "No AI" : "Claude";
+  $("providerPill").textContent = localMode ? "No AI" : modelLabel(aiSettings.model);
   $("includeImagesInput").disabled = localMode;
+}
+
+function safeClaudeModel(model) {
+  return claudeModels[model] ? model : "claude-sonnet-5";
+}
+
+function modelLabel(model) {
+  return claudeModels[safeClaudeModel(model)];
 }
 
 function clearSlideImage() {
@@ -465,6 +484,19 @@ function deleteSlide() {
   deck.splice(selectedIndex, 1);
   selectedIndex = Math.max(0, selectedIndex - 1);
   render();
+}
+
+function moveSlide(direction) {
+  const nextIndex = selectedIndex + direction;
+  if (nextIndex < 0 || nextIndex >= deck.length) {
+    toast(direction < 0 ? "Slide is already first." : "Slide is already last.");
+    return;
+  }
+  const [slide] = deck.splice(selectedIndex, 1);
+  deck.splice(nextIndex, 0, slide);
+  selectedIndex = nextIndex;
+  render();
+  toast(`Moved to slide ${selectedIndex + 1}.`);
 }
 
 async function downloadPptx() {
@@ -762,6 +794,8 @@ $("previewBtn").addEventListener("click", openPreview);
 $("closePreviewBtn").addEventListener("click", closePreview);
 $("prevPreviewBtn").addEventListener("click", () => movePreview(-1));
 $("nextPreviewBtn").addEventListener("click", () => movePreview(1));
+$("moveSlideUpBtn").addEventListener("click", () => moveSlide(-1));
+$("moveSlideDownBtn").addEventListener("click", () => moveSlide(1));
 $("addSlideBtn").addEventListener("click", addSlide);
 $("duplicateSlideBtn").addEventListener("click", duplicateSlide);
 $("deleteSlideBtn").addEventListener("click", deleteSlide);
@@ -770,6 +804,7 @@ $("clearImageBtn").addEventListener("click", clearSlideImage);
 $("saveAiSettingsBtn").addEventListener("click", saveAiSettings);
 $("testAiSettingsBtn").addEventListener("click", testAiSettings);
 $("clearAiSettingsBtn").addEventListener("click", clearAiSettings);
+$("modelInput").addEventListener("change", readAiSettingsForm);
 $("generationModeInput").addEventListener("change", updateGenerationModeUi);
 
 ["kickerInput", "titleInput", "subtitleInput", "bulletsInput", "notesInput", "layoutInput", "themeInput", "visualPromptInput"].forEach((id) => {

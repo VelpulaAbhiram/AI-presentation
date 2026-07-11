@@ -5,6 +5,7 @@ AI Presentation Studio is a browser-based presentation builder for creating edit
 ## What It Does
 
 - Generate a deck from a prompt with Claude
+- Select the Claude model used for deck generation
 - Create a deck without AI when no key is available
 - Edit slide title, subtitle, kicker, bullets, notes, layout, theme, and visual prompt
 - Preview the deck before export
@@ -29,7 +30,14 @@ The app has one simple API key field.
 
 - A pasted key is saved only in the current browser with local storage.
 - If the browser key is blank, the server tries `CLAUDE_API_KEY` from `.env` or hosting secrets.
-- Model selection is intentionally hidden to keep the website simple for users.
+- The model dropdown uses current generic Claude API IDs so users can trade quality, speed, and cost.
+
+Available model choices:
+
+- `claude-sonnet-5`: balanced default
+- `claude-fable-5`: highest-quality option
+- `claude-opus-4-8`: deeper enterprise-style work
+- `claude-haiku-4-5`: fastest option
 
 Create a local `.env` file:
 
@@ -110,6 +118,17 @@ SUPABASE_ANON_KEY=your_supabase_anon_key
 ```
 
 For now, the app still saves editable projects locally as JSON, so deployment is not blocked by Supabase setup.
+
+## Product Roadmap
+
+Strong next additions:
+
+- Drag-and-drop slide reordering
+- Brand kit upload with logo, colors, fonts, and CSS tokens
+- Source document upload and indexing for research-heavy decks
+- Persistent Supabase projects and version history
+- Stock image or asset provider integrations
+- Better generated chart/table components
 
 ## Project Files
 

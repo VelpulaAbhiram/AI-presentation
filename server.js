@@ -9,7 +9,8 @@ const port = Number(process.env.PORT || 3000);
 
 loadEnvFile(path.join(root, ".env"));
 
-const claudeModel = process.env.CLAUDE_MODEL || "claude-sonnet-4-6";
+const defaultClaudeModel = process.env.CLAUDE_MODEL || "claude-sonnet-5";
+const claudeModels = new Set(["claude-sonnet-5", "claude-fable-5", "claude-opus-4-8", "claude-haiku-4-5"]);
 
 const mimeTypes = {
   ".html": "text/html; charset=utf-8",
@@ -503,9 +504,15 @@ function resolveAiSettings(settings = {}, capability = "deck") {
     provider: "claude",
     label: "Claude",
     apiKey: useCustomKey ? cleanApiKey(settings.apiKey) : cleanApiKey(process.env.CLAUDE_API_KEY),
-    model: claudeModel,
+    model: cleanClaudeModel(settings.model),
     capability,
   };
+}
+
+function cleanClaudeModel(model) {
+  const requested = cleanText(model, 80);
+  if (claudeModels.has(requested)) return requested;
+  return claudeModels.has(defaultClaudeModel) ? defaultClaudeModel : "claude-sonnet-5";
 }
 
 function cleanApiKey(value) {
